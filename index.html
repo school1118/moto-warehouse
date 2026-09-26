@@ -1,0 +1,2957 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سیستم جامع انبارداری چندشعبه‌ای بنگاه موتور</title>
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; font-family: 'Vazirmatn', Tahoma, sans-serif; }
+  :root{
+    --blue:#2a5298; --navy:#1e3c72; --green:#27ae60; --orange:#e67e22; --red:#c0392b; --purple:#8e44ad;
+    --bg:#f0f2f5; --card:#fff; --line:#e6e9ef; --muted:#6b7280;
+  }
+  html.dark{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --muted:#94a3b8;
+  }
+  html.dark body{ background:var(--bg); color:#e2e8f0; }
+  html.dark .panel, html.dark table, html.dark .toolbar, html.dark .modal, html.dark .branch-bar, html.dark nav{ background:var(--card); color:#e2e8f0; }
+  html.dark th{ background:#26334a; color:#cbd5e1; }
+  html.dark td{ border-color:var(--line); }
+  html.dark tr:hover td{ background:#26334a; }
+  html.dark input, html.dark select, html.dark textarea{ background:#0f172a; color:#e2e8f0; border-color:#334155; }
+  html.dark .empty, html.dark .info-grid{ color:#94a3b8; }
+  html.dark h2, html.dark h3{ color:#93c5fd; }
+  html.dark .history-item{ background:#26334a; }
+  body { margin:0; background:var(--bg); color:#222; font-size:14px; transition:.2s; }
+  header { background:linear-gradient(135deg,#1e3c72,#2a5298); color:#fff; padding:12px 22px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 8px rgba(0,0,0,.15); flex-wrap:wrap; gap:10px; }
+  header h1 { margin:0; font-size:18px; }
+  header .stats { font-size:12px; opacity:.95; background:rgba(255,255,255,.15); padding:6px 12px; border-radius:20px; }
+  .head-actions{ display:flex; align-items:center; gap:8px; }
+  .head-actions button{ background:rgba(255,255,255,.15); border:none; color:#fff; padding:6px 10px; border-radius:8px; cursor:pointer; font-size:12px; }
+  .head-actions button:hover{ background:rgba(255,255,255,.28); }
+
+  .branch-bar { background:#fff; padding:10px 18px; display:flex; align-items:center; gap:12px; border-bottom:2px solid #e0e0e0; flex-wrap:wrap; }
+  .branch-bar label { font-weight:700; color:#1e3c72; font-size:13px; }
+  .branch-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+  .branch-tabs button { padding:7px 14px; border:2px solid #ccd; background:#fff; border-radius:20px; cursor:pointer; font-weight:600; font-size:12px; color:#555; transition:.2s; }
+  .branch-tabs button:hover { background:#f5f7fa; }
+  .branch-tabs button.active { background:#2a5298; color:#fff; border-color:#2a5298; }
+  .branch-tabs button.manager { border-color:#e67e22; color:#e67e22; }
+  .branch-tabs button.manager.active { background:#e67e22; color:#fff; }
+  .branch-tabs button .cnt { background:rgba(0,0,0,.1); padding:1px 6px; border-radius:10px; font-size:10px; margin-right:4px; }
+  .branch-tabs button.active .cnt { background:rgba(255,255,255,.25); }
+
+  nav { background:#fff; display:flex; flex-wrap:wrap; border-bottom:2px solid #e0e0e0; padding:0 12px; position:sticky; top:0; z-index:10; overflow-x:auto; }
+  nav button { background:none; border:none; padding:13px 14px; cursor:pointer; font-size:13px; font-weight:600; color:#555; border-bottom:3px solid transparent; transition:.2s; white-space:nowrap; }
+  nav button:hover { background:#f5f7fa; }
+  nav button.active { color:#2a5298; border-bottom-color:#2a5298; }
+  main { padding:18px; max-width:1500px; margin:auto; }
+  .panel { display:none; background:#fff; border-radius:10px; padding:18px; box-shadow:0 2px 10px rgba(0,0,0,.06); }
+  .panel.active { display:block; }
+  h2 { margin-top:0; color:#1e3c72; border-bottom:2px solid #eef; padding-bottom:10px; font-size:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  h2 .badge-branch { background:#eef; color:#2a5298; font-size:12px; padding:5px 12px; border-radius:20px; font-weight:600; }
+  h3 { color:#2a5298; margin-top:22px; font-size:15px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .field { display:flex; flex-direction:column; gap:4px; }
+  label { font-size:12px; font-weight:600; color:#444; }
+  html.dark label{ color:#cbd5e1; }
+  input, select, textarea { padding:8px 10px; border:1px solid #ccd; border-radius:6px; font-size:13px; font-family:inherit; background:#fff; width:100%; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:#2a5298; box-shadow:0 0 0 3px rgba(42,82,152,.12); }
+  input[readonly] { background:#f5f7fa; }
+  input.err, select.err, textarea.err { border-color:#c0392b !important; box-shadow:0 0 0 3px rgba(192,57,43,.15) !important; }
+  button.btn { background:#2a5298; color:#fff; border:none; padding:9px 18px; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px; margin-top:10px; transition:.2s; }
+  button.btn:hover { background:#1e3c72; }
+  button.btn:disabled{ background:#9aa5b5; cursor:not-allowed; }
+  button.btn.danger { background:#c0392b; } button.btn.danger:hover { background:#96281b; }
+  button.btn.success { background:#27ae60; } button.btn.success:hover { background:#1e8449; }
+  button.btn.warn { background:#e67e22; } button.btn.warn:hover { background:#ca6f1e; }
+  button.btn.gray { background:#888; } button.btn.gray:hover { background:#666; }
+  button.btn.purple { background:#8e44ad; } button.btn.purple:hover { background:#6c3483; }
+  button.btn.small { padding:4px 9px; font-size:11px; margin:0 2px; }
+  .actions { display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin-top:4px; }
+  table { width:100%; border-collapse:collapse; margin-top:12px; font-size:12px; background:#fff; }
+  th, td { padding:8px 7px; border-bottom:1px solid #eee; text-align:right; }
+  th { background:#f4f6fa; color:#1e3c72; font-weight:700; white-space:nowrap; font-size:11px; cursor:pointer; user-select:none; }
+  th.no-sort{ cursor:default; }
+  tr:hover td { background:#fafbfd; }
+  .badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:10px; font-weight:700; white-space:nowrap; }
+  .b-in { background:#d4edda; color:#155724; }
+  .b-sale { background:#cce5ff; color:#004085; }
+  .b-out { background:#f8d7da; color:#721c24; }
+  .b-return { background:#d1ecf1; color:#0c5460; }
+  .b-transfer { background:#fff3cd; color:#856404; }
+  .b-cash { background:#d4edda; color:#155724; }
+  .b-check { background:#fff3cd; color:#856404; }
+  .b-inst { background:#f8d7da; color:#721c24; }
+  .b-trust { background:#e2d5f8; color:#4a1e82; }
+  .b-low { background:#fde2e2; color:#a11; }
+  .stat-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+  .stat-card { background:linear-gradient(135deg,#2a5298,#1e3c72); color:#fff; padding:14px; border-radius:10px; text-align:center; cursor:default; }
+  .stat-card.click{cursor:pointer;}
+  .stat-card.green { background:linear-gradient(135deg,#27ae60,#1e8449); }
+  .stat-card.orange { background:linear-gradient(135deg,#e67e22,#ca6f1e); }
+  .stat-card.red { background:linear-gradient(135deg,#c0392b,#96281b); }
+  .stat-card.purple { background:linear-gradient(135deg,#8e44ad,#6c3483); }
+  .stat-card .num { font-size:22px; font-weight:800; }
+  .stat-card .lbl { font-size:11px; opacity:.9; margin-top:4px; }
+  .empty { text-align:center; color:#999; padding:28px; font-style:italic; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-bottom:12px; background:#f8fafd; padding:12px; border-radius:8px; }
+  .toolbar .field { min-width:140px; }
+  .toolbar .field.search { flex:1; min-width:220px; }
+  .toolbar .field.search input { border:2px solid #2a5298; background:#fff; font-weight:600; }
+  .modal-back { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; justify-content:center; align-items:center; z-index:100; padding:10px; }
+  .modal-back.active { display:flex; }
+  .modal { background:#fff; border-radius:10px; padding:20px; max-width:680px; width:100%; max-height:90vh; overflow:auto; }
+  .modal h3 { margin-top:0; }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(120%); background:#333; color:#fff; padding:12px 22px; border-radius:8px; transition:.3s; z-index:200; font-size:13px; max-width:90vw; text-align:center; }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+  .toast.ok { background:#27ae60; } .toast.err { background:#c0392b; } .toast.warn{ background:#e67e22; }
+
+  .dp-wrap { position:relative; }
+  .dp-input { cursor:pointer; background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%232a5298' viewBox='0 0 16 16'><path d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/></svg>") no-repeat left 8px center; padding-left:32px; }
+  html.dark .dp-input{ background-color:#0f172a; }
+  .dp-pop { position:absolute; top:100%; right:0; z-index:50; background:#fff; border:1px solid #ccd; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.15); padding:10px; display:none; width:250px; margin-top:4px; }
+  html.dark .dp-pop{ background:#1e293b; border-color:#334155; }
+  .dp-pop.active { display:block; }
+  .dp-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-weight:700; }
+  .dp-head button { background:#eef; border:none; border-radius:4px; cursor:pointer; padding:4px 10px; font-size:14px; }
+  .dp-head button:hover { background:#dde; }
+  .dp-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .dp-grid .dow { text-align:center; font-size:10px; color:#888; padding:4px 0; font-weight:700; }
+  .dp-grid .day { text-align:center; padding:6px 0; border-radius:4px; cursor:pointer; font-size:12px; }
+  .dp-grid .day:hover { background:#eef; }
+  .dp-grid .day.today { background:#ffe7b3; }
+  .dp-grid .day.sel { background:#2a5298; color:#fff; }
+  .dp-grid .day.empty { color:#ccc; cursor:default; }
+  .dp-grid .day.empty:hover { background:transparent; }
+  .dp-foot { text-align:center; margin-top:8px; font-size:11px; color:#888; }
+
+  .chip { display:inline-flex; align-items:center; gap:4px; padding:5px 10px; border-radius:20px; font-size:11px; font-weight:600; background:#eef; color:#2a5298; margin:2px; }
+  .history-item { border-right:3px solid #2a5298; padding:10px 14px; margin:8px 0; background:#f8fafd; border-radius:0 6px 6px 0; font-size:12px; line-height:1.9; }
+  .history-item .meta { color:#555; font-size:11px; margin-top:4px; border-top:1px dashed #ccd; padding-top:6px; }
+  .history-item .row-kv { display:inline-block; margin-left:14px; }
+  .history-item .row-kv b { color:#1e3c72; }
+  .info-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin:10px 0; padding:10px; background:#f8fafd; border-radius:6px; font-size:12px; }
+  .info-grid b { color:#1e3c72; }
+  .helper{ font-size:11px; color:var(--muted); }
+  .alert{ padding:10px 14px; border-radius:8px; font-size:12px; margin:10px 0; }
+  .alert.warn{ background:#fff8e1; border-right:4px solid #e67e22; color:#7a4a00; }
+  .alert.info{ background:#e8f1ff; border-right:4px solid #2a5298; color:#1e3c72; }
+  .alert.red{ background:#fdecea; border-right:4px solid #c0392b; color:#8a1f1f; }
+  .pos{ color:#198038; font-weight:700; } .neg{ color:#c0392b; font-weight:700; }
+  .seg{ display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+  .seg button{ border:1px solid #ccd; background:#fff; border-radius:8px; padding:6px 12px; cursor:pointer; font-weight:600; font-size:12px; }
+  .seg button.active{ background:#2a5298; color:#fff; border-color:#2a5298; }
+  .bar{ height:9px; border-radius:6px; background:#e6e9ef; overflow:hidden; }
+  .bar span{ display:block; height:100%; background:linear-gradient(90deg,#27ae60,#2a5298); }
+  .row-flex{ display:flex; gap:8px; flex-wrap:wrap; align-items:end; }
+  .row-flex > .field{ flex:1; min-width:150px; }
+  .list-row{ display:flex; justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px dashed var(--line); font-size:12px; align-items:center; }
+  .tabs-sub{ display:flex; gap:6px; border-bottom:1px solid var(--line); margin:10px 0; flex-wrap:wrap; }
+  .tabs-sub button{ background:none; border:none; padding:8px 12px; cursor:pointer; font-weight:600; font-size:12px; color:var(--muted); border-bottom:2px solid transparent; }
+  .tabs-sub button.active{ color:#2a5298; border-bottom-color:#2a5298; }
+  .kpi-mini{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; }
+  .kpi-mini div{ background:#f8fafd; border:1px solid var(--line); border-radius:8px; padding:10px; text-align:center; font-size:12px; }
+  html.dark .kpi-mini div{ background:#26334a; }
+  .kpi-mini b{ display:block; font-size:16px; color:#2a5298; }
+  html.dark .kpi-mini b{ color:#93c5fd; }
+  @media(max-width:640px){ nav button{padding:9px 8px; font-size:11px;} main{padding:8px;} th,td{font-size:10px;padding:5px 3px;} .history-item .row-kv{display:block;} }
+  /* صفحه ورود */
+  .login-screen{ position:fixed; inset:0; background:linear-gradient(135deg,#1e3c72,#2a5298); display:flex; align-items:center; justify-content:center; z-index:500; padding:16px; }
+  .login-screen.hidden{ display:none; }
+  .login-card{ background:#fff; border-radius:16px; padding:28px; width:100%; max-width:400px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  html.dark .login-card{ background:#1e293b; color:#e2e8f0; }
+  .login-card h1{ margin:0 0 6px; font-size:20px; color:#1e3c72; text-align:center; }
+  html.dark .login-card h1{ color:#93c5fd; }
+  .login-sub{ text-align:center; font-size:12px; color:#6b7280; margin:0 0 18px; }
+  .login-card .field{ margin-bottom:12px; }
+  .login-err{ color:#c0392b; font-size:12px; min-height:18px; margin-top:8px; text-align:center; }
+  .badge-role{ background:rgba(255,255,255,.15); }
+  #syncBadge.online{ background:rgba(39,174,96,.35); }
+  #syncBadge.offline{ background:rgba(192,57,43,.35); }
+  @media print{ .login-screen{ display:none !important; } }
+  @media print{
+    header, .branch-bar, nav, .toolbar, .actions, .no-print{ display:none !important; }
+    body{ background:#fff; }
+    .panel{ display:block !important; box-shadow:none; }
+    .panel:not(.active){ display:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏍️ سیستم جامع انبارداری چندشعبه‌ای بنگاه موتور</h1>
+  <div class="head-actions">
+    <span class="stats" id="headerStats">در حال بارگذاری...</span>
+    <span class="stats" id="syncBadge" title="وضعیت اتصال زنده">⚪ آفلاین</span>
+    <span class="stats" id="userBadge">مهمان</span>
+    <button onclick="toggleTheme()" title="حالت شب/روز">🌓 <span id="themeLbl">روز</span></button>
+    <button onclick="openAccountMenu()" title="حساب کاربری">👤 حساب</button>
+    <button onclick="openShortcuts()" title="میان‌برهای صفحه‌کلید">⌨️ راهنما</button>
+  </div>
+</header>
+
+<!-- صفحه ورود -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <h1>🏍️ انبارداری چندشعبه‌ای</h1>
+    <p class="login-sub" id="loginSub">برای ورود، نام کاربری و رمز عبور خود را وارد کنید</p>
+    <div id="loginForm">
+      <div class="field"><label>نام کاربری</label><input id="login_user" autocomplete="username" placeholder="مثلا manager"></div>
+      <div class="field"><label>رمز عبور</label><input id="login_pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <div id="loginErr" class="login-err"></div>
+      <button class="btn success" style="width:100%;margin-top:14px;" onclick="doLogin()">🔓 ورود</button>
+      <div style="text-align:center;margin-top:10px;">
+        <a href="#" onclick="openForgotPassword();return false;" style="color:#2a5298;font-size:13px;">رمز عبور را فراموش کرده‌اید؟</a>
+      </div>
+      <div id="setupBlock" style="display:none;margin-top:16px;border-top:1px dashed #ccd;padding-top:14px;">
+        <p class="helper">اولین بار است؟ مدیر سیستم را بسازید.</p>
+        <div class="field"><label>نام کاربری مدیر</label><input id="setup_user" placeholder="manager"></div>
+        <div class="field"><label>رمز عبور مدیر (حداقل ۶ کاراکتر)</label><input id="setup_pass" type="password"></div>
+        <div class="field"><label>تکرار رمز عبور</label><input id="setup_pass2" type="password"></div>
+        <button class="btn" style="width:100%;margin-top:12px;" onclick="doSetupManager()">🛡️ ساخت مدیر و شروع</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="branch-bar">
+  <label>🏢 شعبه فعال:</label>
+  <div class="branch-tabs" id="branchTabs"></div>
+</div>
+
+<nav id="mainNav">
+  <button class="active" data-tab="dash">📊 داشبورد</button>
+  <button data-tab="in">📥 ورود کالا</button>
+  <button data-tab="out">📤 خروج کالا</button>
+  <button data-tab="cycle">🔄 چرخه موتورها</button>
+  <button data-tab="inv">📦 موجودی</button>
+  <button data-tab="report">📈 گزارش شعب</button>
+  <button data-tab="log">📝 لاگ فعالیت</button>
+  <button data-tab="settings">⚙️ تنظیمات</button>
+  <button data-tab="backup">💾 پشتیبان</button>
+</nav>
+
+<main id="appMain"></main>
+
+<div class="modal-back" id="modalBack">
+  <div class="modal">
+    <h3 id="modalTitle">تایید</h3>
+    <div id="modalMsg"></div>
+    <div style="margin-top:16px; text-align:left;" class="no-print">
+      <button class="btn gray" onclick="closeModal()">انصراف</button>
+      <button class="btn danger" id="modalConfirm">تایید</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script id="app-script">
+/* ==========================================================================
+   سیستم جامع انبارداری چندشعبه‌ای بنگاه موتور  —  نسخه توسعه‌یافته
+   توسعه: CRUD کامل، اعتبارسنجی، اقساط، گارانتی، قطعات، هزینه، CSV، لاگ،
+   هشدار موجودی کم، نمودار، جستجوی پیشرفته، مرتب‌سازی، میان‌برهای صفحه‌کلید
+   ========================================================================== */
+
+/* ---------- تنظیمات پیش‌فرض ---------- */
+const DEFAULT_SETTINGS = {
+  branches: ["مرکزی", "شعبه ۱", "شعبه ۲", "شعبه ۳"],
+  lowStock: 3,
+  currency: "تومان",
+  companyName: "بنگاه موتور",
+  theme: "light"
+};
+const LS_KEY = "moto_warehouse_v5";
+const LS_BACKUP_KEY = "moto_warehouse_v5_backup";
+const MANAGER = "__manager__";
+const STATUS = { IN: "موجود", RESERVED: "رزرو", SALE: "فروش", OUT: "خروج", RETURN: "برگشتی" };
+const CUSTOMER_PAY = ["نقدی", "چکی", "اقساطی"];
+const COLLEAGUE_PAY = ["نقدی", "چکی", "اقساطی"];
+const PART_CATEGORIES = ["روغن و فیلتر", "لاستیک و تیوب", "برق و باتری", "ترمز", "موتور و انتقال", "بدنه و پلاستیک", "متفرقه"];
+
+let DB = {
+  items: [], history: [], activity: [], users: [], settings: { ...DEFAULT_SETTINGS }
+};
+let activeBranch = DEFAULT_SETTINGS.branches[0];
+let currentUser = null;      // { username, role: "manager"|"staff", branch }
+let sessionKey = null;       // CryptoKey برای رمزنگاری داده حساس
+let uiState = {
+  sort: { inv: { key: null, dir: 1 }, cycle: { key: null, dir: 1 } },
+  invFilters: { status: "", q: "" },
+  cycFilters: { status: "", q: "" },
+  invTab: "active"
+};
+
+/* ---------- ذخیره/بارگذاری ---------- */
+function save(opts = {}) {
+  DB.settings.activeBranch = activeBranch;
+  DB.settings.theme = document.documentElement.classList.contains("dark") ? "dark" : "light";
+  DB.settings.lastSaved = new Date().toISOString();
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(DB));
+  } catch (e) {
+    toast("⚠️ حافظه مرورگر پر است. از پشتیبان استفاده کنید.", false);
+  }
+  if (typeof scheduleFileSave === "function") scheduleFileSave();
+  // ارسال به سرور Supabase
+  if (typeof SUPA_ON !== "undefined" && SUPA_ON && typeof markSettingsDirty === "function") {
+    markSettingsDirty();
+    if (opts.items && opts.items.length) opts.items.forEach(id => markItemDirty(id));
+    if (opts.users && opts.users.length) opts.users.forEach(un => markUserDirty(un));
+  }
+}
+function load() {
+  const raw = localStorage.getItem(LS_KEY);
+  if (raw) {
+    try {
+      const d = JSON.parse(raw);
+      DB = {
+        items: d.items || [], history: d.history || [],
+        activity: d.activity || [], users: d.users || [],
+        settings: Object.assign({}, DEFAULT_SETTINGS, d.settings || {})
+      };
+    } catch (e) { console.warn("bad data", e); }
+  }
+  if (!DB.settings.branches || !DB.settings.branches.length) DB.settings.branches = [...DEFAULT_SETTINGS.branches];
+  if (!DB.settings.branches.includes(activeBranch)) activeBranch = DB.settings.branches[0];
+}
+
+/* ---------- کمکی‌ها ---------- */
+const $ = id => document.getElementById(id);
+function uid(prefix="id") { return prefix + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function toast(msg, type = true) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show " + (type === true ? "ok" : type === "warn" ? "warn" : "err");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (t.className = "toast"), 2800);
+}
+function branches() { return DB.settings.branches; }
+function branchLabel(b) { return b === MANAGER ? "👔 مدیر مرکزی (همه شعب)" : b; }
+function logActivity(action, detail) {
+  const rec = { id: uid("act"), at: new Date().toISOString(), date: todayJalali(), branch: activeBranch, action, detail };
+  DB.activity.unshift(rec);
+  if (DB.activity.length > 800) DB.activity.length = 800;
+  if (typeof SUPA_ON !== "undefined" && SUPA_ON) {
+    if (typeof _pendingActivity !== "undefined") { _pendingActivity.push(rec); if (typeof scheduleSupaPush === "function") scheduleSupaPush(); }
+  }
+}
+function isManager() { return activeBranch === MANAGER; }
+
+/* ---------- اعداد ---------- */
+function formatNumberInput(el) {
+  let v = el.value.replace(/[^\d]/g, "");
+  if (!v) { el.value = ""; el.dataset.raw = ""; return; }
+  el.value = Number(v).toLocaleString("en-US");
+  el.dataset.raw = v;
+}
+function getNumber(el) {
+  if (!el) return 0;
+  return Number((el.dataset.raw || el.value).replace(/[^\d-]/g, "")) || 0;
+}
+function money(n) { return (Number(n) || 0).toLocaleString("en-US"); }
+function attachNumFmt(root) {
+  (root || document).querySelectorAll(".num-fmt").forEach(el => {
+    if (el.dataset.fmt) return;
+    el.dataset.fmt = "1";
+    el.addEventListener("input", () => formatNumberInput(el));
+  });
+}
+
+/* ---------- تاریخ شمسی ---------- */
+const FA_MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
+const FA_DOW = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
+function toJalali(gy, gm, gd) {
+  const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  let jy = (gy <= 1600) ? 0 : 979;
+  gy -= (gy <= 1600) ? 621 : 1600;
+  const gy2 = (gm > 2) ? (gy + 1) : gy;
+  let days = (365 * gy) + Math.floor((gy2 + 3) / 4) - Math.floor((gy2 + 99) / 100)
+    + Math.floor((gy2 + 399) / 400) - 80 + gd + g_d_m[gm - 1];
+  jy += 33 * Math.floor(days / 12053); days %= 12053;
+  jy += 4 * Math.floor(days / 1461); days %= 1461;
+  if (days > 365) { jy += Math.floor((days - 1) / 365); days = (days - 1) % 365; }
+  const jm = (days < 186) ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30);
+  const jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+  return [jy, jm, jd];
+}
+function toGregorian(jy, jm, jd) {
+  let gy = (jy <= 979) ? 621 : 1600;
+  jy -= (jy <= 979) ? 0 : 979;
+  let days = (365 * jy) + (Math.floor(jy / 33) * 8) + Math.floor(((jy % 33) + 3) / 4) + 78 + jd
+    + ((jm < 7) ? (jm - 1) * 31 : ((jm - 7) * 30) + 186);
+  gy += 400 * Math.floor(days / 146097); days %= 146097;
+  if (days > 36524) { gy += 100 * Math.floor(--days / 36524); days %= 36524; if (days >= 365) days++; }
+  gy += 4 * Math.floor(days / 1461); days %= 1461;
+  if (days > 365) { gy += Math.floor((days - 1) / 365); days = (days - 1) % 365; }
+  let gd = days + 1;
+  const sal_a = [0, 31, (gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let gm;
+  for (gm = 0; gm < 13 && gd > sal_a[gm]; gm++) gd -= sal_a[gm];
+  return [gy, gm, gd];
+}
+function todayJalali() {
+  const d = new Date();
+  const [jy, jm, jd] = toJalali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  return `${jy}/${String(jm).padStart(2, "0")}/${String(jd).padStart(2, "0")}`;
+}
+function jalaliMonthDays(jy, jm) {
+  if (jm <= 6) return 31;
+  if (jm <= 11) return 30;
+  return ((jy + 12) % 33) % 4 === 1 ? 30 : 29;
+}
+function jalaliToISO(jStr) {
+  if (!jStr || !/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(jStr.trim())) return "";
+  const [jy, jm, jd] = jStr.split("/").map(Number);
+  const [gy, gm, gd] = toGregorian(jy, jm, jd);
+  return `${gy}-${String(gm).padStart(2, "0")}-${String(gd).padStart(2, "0")}`;
+}
+function addMonthsJalali(jStr, n) {
+  if (!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(jStr || "")) return "";
+  let [jy, jm, jd] = jStr.split("/").map(Number);
+  jm += n;
+  while (jm > 12) { jm -= 12; jy++; }
+  while (jm < 1) { jm += 12; jy--; }
+  const max = jalaliMonthDays(jy, jm);
+  if (jd > max) jd = max;
+  return `${jy}/${String(jm).padStart(2, "0")}/${String(jd).padStart(2, "0")}`;
+}
+function daysUntil(jStr) {
+  const iso = jalaliToISO(jStr);
+  if (!iso) return null;
+  const target = new Date(iso + "T00:00:00");
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.round((target - now) / 86400000);
+}
+
+/* ==========================================================================
+   رمزنگاری داده حساس (AES-GCM 256 + PBKDF2 200k)
+   طرح امنیتی: یک «کلید داده» تصادفی ساخته می‌شود و همان کلید با دو چیز
+   «بسته‌بندی» می‌شود: رمز عبور کاربر  و  عبارت بازیابی.
+   مزیت: تغییر رمز، داده‌ها را باطل نمی‌کند و فراموشی رمز با عبارت
+   بازیابی قابل جبران است.
+   ========================================================================== */
+const SENSITIVE_SALE_FIELDS = ["national", "address", "phone", "father", "birth"];
+const ENC_PREFIX = "enc:v2:";
+const WRAP_PREFIX = "wrap:v1:";
+const PBKDF2_ITER = 200000;
+
+function bytesToB64(bytes) { let s = ""; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s); }
+function b64ToBytes(b64) { return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
+function randBytes(n) { return crypto.getRandomValues(new Uint8Array(n)); }
+
+async function pbkdf2(password, saltBytes, usage) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: saltBytes, iterations: PBKDF2_ITER, hash: "SHA-256" }, base, 256);
+  return new Uint8Array(bits);
+}
+async function aeadKey(rawBytes) {
+  return crypto.subtle.importKey("raw", rawBytes, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]);
+}
+
+/* بسته‌بندی کلید داده با یک رمز/عبارت */
+async function wrapDataKey(dataKeyBytes, secret) {
+  const salt = randBytes(16);
+  const kek = await aeadKey(await pbkdf2(secret, salt, "wrap"));
+  const iv = randBytes(12);
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, kek, dataKeyBytes);
+  return WRAP_PREFIX + bytesToB64(salt) + ":" + bytesToB64(iv) + ":" + bytesToB64(new Uint8Array(ct));
+}
+async function unwrapDataKey(wrapped, secret) {
+  if (typeof wrapped !== "string" || !wrapped.startsWith(WRAP_PREFIX)) throw new Error("bad wrap");
+  const [saltB, ivB, ctB] = wrapped.slice(WRAP_PREFIX.length).split(":");
+  const kek = await aeadKey(await pbkdf2(secret, b64ToBytes(saltB), "wrap"));
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(ivB) }, kek, b64ToBytes(ctB));
+  return new Uint8Array(pt);
+}
+
+async function encryptStr(plain) {
+  if (!sessionKey || plain == null || plain === "") return plain;
+  try {
+    const iv = randBytes(12);
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, sessionKey, new TextEncoder().encode(String(plain)));
+    return ENC_PREFIX + bytesToB64(iv) + ":" + bytesToB64(new Uint8Array(ct));
+  } catch (e) { return plain; }
+}
+async function decryptStr(val) {
+  if (typeof val !== "string") return val;
+  // پشتیبانی از داده‌های قدیمی v1
+  const isV1 = val.startsWith("enc:v1:");
+  if (!val.startsWith(ENC_PREFIX) && !isV1) return val;
+  if (!sessionKey) return "🔒 قفل";
+  try {
+    const body = isV1 ? val.slice("enc:v1:".length) : val.slice(ENC_PREFIX.length);
+    const [ivB, ctB] = body.split(":");
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(ivB) }, sessionKey, b64ToBytes(ctB));
+    return new TextDecoder().decode(pt);
+  } catch (e) { return "🔒 (رمزگشایی نشد)"; }
+}
+
+/* ساخت رکورد فروش با رمزنگاری فیلدهای حساس */
+async function buildSaleRecord(data) {
+  const rec = Object.assign({}, data);
+  for (const f of SENSITIVE_SALE_FIELDS) {
+    if (rec[f]) rec[f] = await encryptStr(rec[f]);
+  }
+  rec.enc = true;
+  return rec;
+}
+function decryptSale(sale) {
+  if (!sale) return sale;
+  const out = Object.assign({}, sale);
+  if (!sale.enc) return out;
+  for (const f of SENSITIVE_SALE_FIELDS) {
+    const v = sale[f];
+    if (typeof v === "string" && (v.startsWith(ENC_PREFIX) || v.startsWith("enc:v1:"))) out[f] = "🔒 رمزگذاری‌شده";
+  }
+  return out;
+}
+async function decryptSaleFull(sale) {
+  if (!sale || !sale.enc) return sale;
+  const out = Object.assign({}, sale);
+  for (const f of SENSITIVE_SALE_FIELDS) out[f] = await decryptStr(sale[f]);
+  return out;
+}
+function isEncVal(v) { return typeof v === "string" && (v.startsWith(ENC_PREFIX) || v.startsWith("enc:v1:")); }
+/* جستجو روی نسخه رمزگشایی‌شده (کش‌دار) */
+const _decIndex = new Map();
+async function searchSaleAsync(item, q) {
+  const s = q.toLowerCase();
+  const sale = await decryptSaleFull(item.saleInfo || {});
+  const fields = [sale.buyer, sale.father, sale.national, sale.phone, sale.address, sale.receipt]
+    .filter(Boolean).map(x => String(x).toLowerCase());
+  return fields.some(f => f.includes(s));
+}
+function maskNational(n) {
+  if (!n || isEncVal(n)) return n && isEncVal(n) ? "🔒" : "-";
+  if (currentUser && currentUser.role === "manager") return esc(n);
+  return esc(String(n).slice(0, 3)) + "*****" + esc(String(n).slice(-2));
+}
+function userTag() {
+  if (!currentUser) return "-";
+  return currentUser.role === "manager" ? "مدیر" : `${currentUser.username} (${currentUser.branch})`;
+}
+
+/* ==========================================================================
+   کاربران، رمز عبور (salt-دار) و عبارت بازیابی
+   ========================================================================== */
+const WORDS_FA = ["کوه", "دریا", "خورشید", "ماه", "ستاره", "ابر", "باران", "برف", "باد", "آتش", "خاک", "سنگ",
+  "درخت", "گل", "برگ", "ریشه", "شیر", "پلنگ", "عقاب", "اسب", "ماهی", "پرنده", "زنبور", "مورچه",
+  "نان", "برنج", "چای", "عسل", "نمک", "شکر", "زیتون", "انار", "سیب", "انگور", "خرما", "گردو",
+  "کتاب", "قلم", "دفتر", "کلید", "قفل", "درب", "پنجره", "دیوار", "پل", "راه", "جاده", "بندر"];
+function generateRecoveryPhrase(n = 12) {
+  const out = [];
+  const rnd = randBytes(n);
+  for (let i = 0; i < n; i++) out.push(WORDS_FA[rnd[i] % WORDS_FA.length]);
+  return out.join(" ");
+}
+
+async function createUser(username, password, role, branch, opts = {}) {
+  const salt = bytesToB64(randBytes(16));
+  const passHash = bytesToB64(await pbkdf2(password, b64ToBytes(salt), "auth"));
+  const u = {
+    username, salt, passHash,
+    role, branch: role === "manager" ? MANAGER : branch,
+    createdAt: new Date().toISOString()
+  };
+  // فقط مدیر کلید داده و عبارت بازیابی دارد
+  if (role === "manager" && opts.recovery) {
+    const dataKey = randBytes(32);
+    u.wrappedKeyPass = await wrapDataKey(dataKey, password);
+    u.wrappedKeyRecovery = await wrapDataKey(dataKey, normalizePhrase(opts.recovery));
+    u.recoveryHint = opts.recovery.split(" ").slice(0, 2).join(" ") + " ...";
+  }
+  DB.users.push(u);
+  if (typeof markUserDirty === "function") markUserDirty(username, true);
+  return u;
+}
+async function verifyUser(username, password) {
+  const u = DB.users.find(x => x.username === username);
+  if (!u) return null;
+  if (u.salt && u.passHash) {
+    const h = bytesToB64(await pbkdf2(password, b64ToBytes(u.salt), "auth"));
+    if (h === u.passHash) return u;
+    return null;
+  }
+  // سازگاری با کاربران قدیمی بدون salt
+  const old = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("moto$" + password))
+    .then(b => bytesToB64(new Uint8Array(b)));
+  return old === u.passHash ? u : null;
+}
+function normalizePhrase(p) {
+  return String(p || "").trim().replace(/\s+/g, " ");
+}
+/* باز کردن کلید داده با رمز کاربر */
+async function unlockWithPassword(user, password) {
+  if (!user.wrappedKeyPass) throw new Error("no-key");
+  const dataKey = await unwrapDataKey(user.wrappedKeyPass, password);
+  sessionKey = await aeadKey(dataKey);
+  return true;
+}
+/* باز کردن کلید داده با عبارت بازیابی */
+async function unlockWithRecovery(username, phrase) {
+  const u = DB.users.find(x => x.username === username);
+  if (!u || !u.wrappedKeyRecovery) throw new Error("no-recovery");
+  const dataKey = await unwrapDataKey(u.wrappedKeyRecovery, normalizePhrase(phrase));
+  sessionKey = await aeadKey(dataKey);
+  return dataKey;
+}
+/* تغییر رمز بدون از بین رفتن داده: کلید داده با رمز جدید بسته‌بندی می‌شود */
+async function rewrapForNewPassword(user, newPassword) {
+  // اگر sessionKey داریم، کلید داده فعلی را بازبسته‌بندی می‌کنیم
+  if (!sessionKey) throw new Error("locked");
+  const raw = await exportSessionKey();
+  user.wrappedKeyPass = await wrapDataKey(raw, newPassword);
+  const salt = bytesToB64(randBytes(16));
+  user.salt = salt;
+  user.passHash = bytesToB64(await pbkdf2(newPassword, b64ToBytes(salt), "auth"));
+}
+async function exportSessionKey() {
+  const raw = await crypto.subtle.exportKey("raw", sessionKey);
+  return new Uint8Array(raw);
+}
+
+/* ---------- انتخابگر تاریخ شمسی ---------- */
+function buildJalaliPicker(input) {
+  if (input.dataset.dp) return;
+  input.dataset.dp = "1";
+  const wrap = input.parentElement;
+  const pop = document.createElement("div");
+  pop.className = "dp-pop";
+  wrap.appendChild(pop);
+  const today = todayJalali();
+  const [tjy, tjm, tjd] = today.split("/").map(Number);
+  let viewJy = tjy, viewJm = tjm;
+  function parseVal() {
+    const v = input.value.trim();
+    if (!/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(v)) return null;
+    const [y, m, d] = v.split("/").map(Number);
+    return { y, m, d };
+  }
+  function firstDow(jy, jm) {
+    const [gy, gm, gd] = toGregorian(jy, jm, 1);
+    const dow = new Date(gy, gm - 1, gd).getDay();
+    return (dow + 1) % 7;
+  }
+  function render() {
+    const days = jalaliMonthDays(viewJy, viewJm);
+    const first = firstDow(viewJy, viewJm);
+    const sel = parseVal();
+    let html = `<div class="dp-head">
+      <button type="button" data-act="prevY">«</button>
+      <button type="button" data-act="prevM">‹</button>
+      <span>${FA_MONTHS[viewJm - 1]} ${viewJy}</span>
+      <button type="button" data-act="nextM">›</button>
+      <button type="button" data-act="nextY">»</button>
+    </div><div class="dp-grid">`;
+    FA_DOW.forEach(d => html += `<div class="dow">${d}</div>`);
+    for (let i = 0; i < first; i++) html += `<div class="day empty"></div>`;
+    for (let d = 1; d <= days; d++) {
+      const isToday = (viewJy === tjy && viewJm === tjm && d === tjd);
+      const isSel = sel && sel.y === viewJy && sel.m === viewJm && sel.d === d;
+      html += `<div class="day${isToday ? " today" : ""}${isSel ? " sel" : ""}" data-day="${d}">${d}</div>`;
+    }
+    html += `</div><div class="dp-foot">امروز: ${today} — <a href="#" data-act="today">انتخاب امروز</a></div>`;
+    pop.innerHTML = html;
+    pop.querySelectorAll("[data-act]").forEach(b => {
+      b.onclick = e => {
+        e.preventDefault(); e.stopPropagation();
+        const a = b.dataset.act;
+        if (a === "prevY") viewJy--; else if (a === "nextY") viewJy++;
+        else if (a === "prevM") { viewJm--; if (viewJm < 1) { viewJm = 12; viewJy--; } }
+        else if (a === "nextM") { viewJm++; if (viewJm > 12) { viewJm = 1; viewJy++; } }
+        else if (a === "today") { input.value = today; pop.classList.remove("active"); input.dispatchEvent(new Event("change")); return; }
+        render();
+      };
+    });
+    pop.querySelectorAll(".day:not(.empty)").forEach(d => {
+      d.onclick = () => {
+        const day = Number(d.dataset.day);
+        input.value = `${viewJy}/${String(viewJm).padStart(2, "0")}/${String(day).padStart(2, "0")}`;
+        pop.classList.remove("active");
+        input.dispatchEvent(new Event("change"));
+      };
+    });
+  }
+  input.addEventListener("click", e => {
+    e.stopPropagation();
+    const v = parseVal();
+    if (v) { viewJy = v.y; viewJm = v.m; }
+    render();
+    pop.classList.toggle("active");
+  });
+  document.addEventListener("click", e => { if (!wrap.contains(e.target)) pop.classList.remove("active"); });
+}
+
+/* ---------- مودال ---------- */
+let modalCb = null, modalExtraCb = null;
+function openModal(title, msg, cb, confirmText = "تایید", onOpen) {
+  $("modalTitle").innerHTML = title;
+  $("modalMsg").innerHTML = msg;
+  $("modalBack").classList.add("active");
+  const btn = $("modalConfirm");
+  btn.textContent = confirmText;
+  btn.style.display = cb ? "inline-block" : "none";
+  btn.onclick = async () => { if (modalCb) { const r = modalCb(); if (r && r.then) { btn.disabled = true; try { await r; } finally { btn.disabled = false; } } } };
+  modalCb = cb;
+  if (onOpen) setTimeout(onOpen, 30);
+}
+function closeModal() {
+  $("modalBack").classList.remove("active");
+  $("modalMsg").innerHTML = "";
+  modalCb = null; modalExtraCb = null;
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("modalBack").classList.contains("active")) closeModal();
+  if (e.key === "Enter" && e.ctrlKey && $("modalBack").classList.contains("active") && modalCb) { e.preventDefault(); modalCb(); }
+  if (e.ctrlKey && e.key.toLowerCase() === "s") { e.preventDefault(); save(); toast("💾 ذخیره شد"); }
+  if (e.ctrlKey && e.key.toLowerCase() === "p") { setTimeout(() => window.print(), 100); }
+});
+
+/* ---------- اعتبارسنجی ---------- */
+function setErr(el, on) { if (el) el.classList.toggle("err", !!on); }
+function validateField(el, cond, msg) { const ok = !!cond; setErr(el, !ok); return ok; }
+function clearErrs(root) { (root || document).querySelectorAll(".err").forEach(e => e.classList.remove("err")); }
+function focusFirstErr() { const e = document.querySelector(".err"); if (e) { e.focus(); e.scrollIntoView({ block: "center", behavior: "smooth" }); } }
+
+/* ---------- تم ---------- */
+function toggleTheme() {
+  const dark = document.documentElement.classList.toggle("dark");
+  $("themeLbl").textContent = dark ? "شب" : "روز";
+  save();
+}
+function applyTheme() {
+  const dark = DB.settings.theme === "dark";
+  document.documentElement.classList.toggle("dark", dark);
+  const l = $("themeLbl"); if (l) l.textContent = dark ? "شب" : "روز";
+}
+
+/* ---------- CSV ---------- */
+function toCSV(rows) {
+  return rows.map(r => r.map(c => {
+    const s = String(c == null ? "" : c);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(",")).join("\r\n");
+}
+function downloadCSV(filename, rows) {
+  const csv = "\uFEFF" + toCSV(rows);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function downloadJSON(filename, obj) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function printSection() { window.print(); }
+
+/* ==========================================================================
+   ذخیره‌سازی امن در فایل (File System Access API)
+   داده‌ها علاوه بر مرورگر، در یک فایل واقعی روی هارد ذخیره می‌شود که
+   می‌توان آن را در Google Drive / OneDrive گذاشت تا از هر دستگاهی در دسترس باشد.
+   ========================================================================== */
+let fileHandle = null;
+const FS_DB = "moto_warehouse_fs";
+let autoSaveTimer = null;
+
+function fsSupported() {
+  return typeof window.showSaveFilePicker === "function" && window.isSecureContext;
+}
+
+async function initFileStorage() {
+  // اگر قبلا فایل وصل شده و مرورگر مجوز داده، دوباره وصل شو
+  try {
+    const saved = await idbGet(FS_DB, "handle");
+    if (saved && saved.queryPermission) {
+      const perm = await saved.queryPermission({ mode: "readwrite" });
+      if (perm === "granted") {
+        fileHandle = saved;
+        await pullFromFile(true);
+      } else {
+        // نیاز به تایید کاربر با یک کلیک
+        setFileBanner("reconnect");
+      }
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function setFileBanner(state) {
+  const el = $("fileBanner");
+  if (!el) return;
+  if (state === "connected") {
+    el.className = "alert info";
+    el.innerHTML = `🔐 <b>ذخیره امن فعال است.</b> داده‌ها به‌طور خودکار در فایل <b>${esc(fileHandle ? fileHandle.name : "")}</b> ذخیره می‌شوند.`;
+  } else if (state === "reconnect") {
+    el.className = "alert warn";
+    el.innerHTML = `🔒 فایل امن قبلی پیدا شد. برای اتصال مجدد <button class="btn small success" onclick="reconnectFile()">اینجا کلیک کنید</button>`;
+  } else if (state === "unsupported") {
+    el.className = "alert warn";
+    el.innerHTML = `⚠️ مرورگر شما از ذخیره مستقیم در فایل پشتیبانی نمی‌کند. از دکمه «دانلود پشتیبان» استفاده کنید (Chrome/Edge پیشنهاد می‌شود).`;
+  } else {
+    el.className = "alert info";
+    el.innerHTML = `🔐 با یک بار اتصال فایل، داده‌ها به‌طور خودکار روی هارد شما ذخیره می‌شوند. فایل را می‌توانید در Google Drive بگذارید تا از هر دستگاهی استفاده کنید.`;
+  }
+}
+
+async function connectFile() {
+  if (!fsSupported()) { toast("مرورگر پشتیبانی نمی‌کند — از Chrome یا Edge استفاده کنید", false); return; }
+  try {
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName: `moto-warehouse-${todayJalali().replace(/\//g, "-")}.json`,
+      types: [{ description: "فایل داده انبار", accept: { "application/json": [".json"] } }]
+    });
+    await idbSet(FS_DB, "handle", fileHandle);
+    await writeFile();
+    setFileBanner("connected");
+    toast("🔐 فایل امن وصل شد — ذخیره خودکار فعال است");
+  } catch (e) { if (e.name !== "AbortError") toast("اتصال لغو شد", false); }
+}
+
+async function reconnectFile() {
+  try {
+    const saved = await idbGet(FS_DB, "handle");
+    if (!saved) return;
+    const perm = await saved.requestPermission({ mode: "readwrite" });
+    if (perm === "granted") {
+      fileHandle = saved;
+      await pullFromFile(false);
+      setFileBanner("connected");
+      toast("🔐 متصل شد");
+    } else { toast("دسترسی داده نشد", false); }
+  } catch (e) { toast("اتصال ناموفق", false); }
+}
+
+async function writeFile() {
+  if (!fileHandle) return;
+  try {
+    const w = await fileHandle.createWritable();
+    await w.write(new Blob([JSON.stringify(DB, null, 2)], { type: "application/json" }));
+    await w.close();
+  } catch (e) { console.warn("write failed", e); }
+}
+
+async function pullFromFile(silent) {
+  if (!fileHandle) return;
+  try {
+    const f = await fileHandle.getFile();
+    const txt = await f.text();
+    if (!txt.trim()) { await writeFile(); return; }
+    const d = JSON.parse(txt);
+    if (d.items && d.items.length) {
+      // داده فایل را ترجیح بده اگر از نسخه مرورگر جدیدتر است
+      const fsTime = d.settings && d.settings.lastSaved ? d.settings.lastSaved : "";
+      const dbTime = DB.settings && DB.settings.lastSaved ? DB.settings.lastSaved : "";
+      if (fsTime >= dbTime) {
+        DB = { items: d.items || [], history: d.history || [], activity: d.activity || [], settings: Object.assign({}, DEFAULT_SETTINGS, d.settings || {}) };
+        if (!branches().includes(activeBranch)) activeBranch = branches()[0];
+        localStorage.setItem(LS_KEY, JSON.stringify(DB));
+      } else {
+        await writeFile();
+      }
+    }
+    if (!silent) { renderBranchTabs(); renderDashboard(); toast("📂 داده‌ها از فایل خوانده شد"); }
+    else if (DB.items.length) { renderBranchTabs(); renderDashboard(); }
+  } catch (e) { console.warn("pull failed", e); }
+}
+
+function scheduleFileSave() {
+  if (!fileHandle) return;
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(writeFile, 1200);
+}
+
+async function disconnectFile() {
+  fileHandle = null;
+  await idbSet(FS_DB, "handle", null).catch(() => {});
+  setFileBanner("idle");
+  toast("اتصال فایل قطع شد");
+}
+
+/* IndexedDB کوچک برای نگه‌داشتن handle فایل */
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("moto_fs_store", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbSet(k, v) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readwrite");
+    tx.objectStore("kv").put(v, k);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbGet(k) {
+  const db = await idbOpen();
+  return new Promise((res, rej) => {
+    const tx = db.transaction("kv", "readonly");
+    const req = tx.objectStore("kv").get(k);
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+/* ==========================================================================
+   پنل‌ها (HTML)
+   ========================================================================== */
+function buildPanels() {
+  $("appMain").innerHTML = `
+  <div class="panel active" id="tab-dash">
+    <h2>داشبورد <span class="badge-branch" id="dashBranchLabel">-</span></h2>
+    <div class="stat-cards" id="dashCards"></div>
+    <div id="dashAlerts"></div>
+    <div class="row-flex">
+      <div style="flex:2;min-width:280px;">
+        <h3>📊 نمودار فروش ۶ ماه اخیر <span class="helper">(تومان)</span></h3>
+        <div id="salesChart"></div>
+      </div>
+      <div style="flex:1;min-width:240px;">
+        <h3>🏢 موجودی شعب</h3>
+        <div id="branchCards"></div>
+      </div>
+    </div>
+    <h3>🏆 پرفروش‌ترین مدل‌ها</h3>
+    <div id="topModels"></div>
+    <h3>آخرین رخدادها</h3>
+    <div id="recentLog"></div>
+  </div>
+
+  <div class="panel" id="tab-in">
+    <h2>📥 ثبت ورود کالا (خرید از تامین‌کننده) <span class="badge-branch" id="inBranchLabel">-</span></h2>
+    <div class="grid" id="inForm"></div>
+    <div class="actions">
+      <button class="btn success" onclick="addEntry()">✅ ثبت ورود</button>
+      <button class="btn gray" onclick="clearForm('in')">پاک کردن فرم</button>
+      <span class="helper">Ctrl+Enter برای ثبت سریع</span>
+    </div>
+  </div>
+
+  <div class="panel" id="tab-out">
+    <h2>📤 ثبت خروج کالا (فروش / انتقال) <span class="badge-branch" id="outBranchLabel">-</span></h2>
+    <div class="grid" id="outForm"></div>
+    <div class="actions">
+      <button class="btn warn" onclick="addExit()">📤 ثبت خروج</button>
+      <button class="btn gray" onclick="clearForm('out')">پاک کردن فرم</button>
+    </div>
+  </div>
+
+  <div class="panel" id="tab-cycle">
+    <h2>🔄 چرخه وضعیت موتورها <span class="badge-branch" id="cycBranchLabel">-</span></h2>
+    <p style="font-size:12px;color:#555;background:#f8fafd;padding:10px;border-radius:6px;">
+      <span class="chip" style="background:#d4edda;color:#155724;">موجود</span> →
+      <span class="chip" style="background:#e2d5f8;color:#4a1e82;">رزرو</span> →
+      <span class="chip" style="background:#cce5ff;color:#004085;">فروش</span> →
+      <span class="chip" style="background:#f8d7da;color:#721c24;">خروج</span> →
+      <span class="chip" style="background:#d1ecf1;color:#0c5460;">برگشتی</span> →
+      <span class="chip" style="background:#d4edda;color:#155724;">موجود</span>
+    </p>
+    <div class="toolbar">
+      <div class="field search"><label>🔍 جستجو</label><input id="cyc_q" placeholder="نام مشتری/همکار، پلاک، شاسی، موتور، کد ملی..."></div>
+      <div class="field"><label>وضعیت</label><select id="cyc_status"><option value="">همه</option>${Object.values(STATUS).map(s => `<option>${s}</option>`).join("")}</select></div>
+      <div class="field"><label>از تاریخ</label><div class="dp-wrap"><input class="dp-input" id="cyc_from" readonly placeholder="—"></div></div>
+      <div class="field"><label>تا تاریخ</label><div class="dp-wrap"><input class="dp-input" id="cyc_to" readonly placeholder="—"></div></div>
+      <button class="btn" onclick="renderCycle()">🔍 فیلتر</button>
+      <button class="btn gray" onclick="resetCycleFilters()">پاک کردن فیلتر</button>
+      <button class="btn purple" onclick="exportCycleCSV()">⬇️ CSV</button>
+      <button class="btn gray" onclick="printSection()">🖨️ چاپ</button>
+    </div>
+    <div id="cycCount" class="helper"></div>
+    <div id="cycTable"></div>
+  </div>
+
+  <div class="panel" id="tab-inv">
+    <h2>📦 موجودی انبار <span class="badge-branch" id="invBranchLabel">-</span></h2>
+    <div class="tabs-sub" id="invTabs">
+      <button class="active" data-invtab="active">موجودی فعال</button>
+      <button data-invtab="all">همه اقلام</button>
+      <button data-invtab="low">⚠️ موجودی کم</button>
+      <button data-invtab="age">⏳ عمر موجودی</button>
+      <button data-invtab="value">💰 ارزش‌گذاری</button>
+    </div>
+    <div class="toolbar" id="invToolbar">
+      <div class="field search"><label>🔍 جستجو</label><input id="inv_q" placeholder="نام مشتری/همکار، پلاک، شاسی، موتور..."></div>
+      <div class="field"><label>وضعیت</label><select id="inv_status"><option value="">همه</option>${Object.values(STATUS).map(s => `<option>${s}</option>`).join("")}</select></div>
+      <div class="field"><label>شرکت</label><select id="inv_company"><option value="">همه</option></select></div>
+      <div class="field"><label>مرتب‌سازی</label><select id="inv_sort"><option value="">پیش‌فرض</option><option value="price_desc">قیمت (بیشترین)</option><option value="price_asc">قیمت (کمترین)</option><option value="name">نام موتور</option><option value="date_desc">جدیدترین ورود</option></select></div>
+      <button class="btn" onclick="renderInventory()">🔍 فیلتر</button>
+      <button class="btn gray" onclick="resetInvFilters()">پاک کردن فیلتر</button>
+      <button class="btn purple" onclick="exportInvCSV()">⬇️ CSV</button>
+      <button class="btn gray" onclick="printSection()">🖨️ چاپ</button>
+    </div>
+    <div id="invCount" class="helper"></div>
+    <div id="invTable"></div>
+  </div>
+
+  <div class="panel" id="tab-report">
+    <h2>📈 گزارش تجمیعی و تفکیکی شعب</h2>
+    <p class="alert warn">⚠️ این بخش فقط برای <b>مدیر مرکزی</b> است. برای مشاهده، شعبه «مدیر مرکزی» را انتخاب کنید.</p>
+    <div id="reportBody"></div>
+  </div>
+
+  <div class="panel" id="tab-log">
+    <h2>📝 لاگ فعالیت‌ها <span class="badge-branch">تاریخچه کامل عملیات</span></h2>
+    <div class="toolbar">
+      <div class="field search"><label>🔍 جستجو</label><input id="log_q" placeholder="جستجو در عملیات..."></div>
+      <button class="btn gray" onclick="exportLogCSV()">⬇️ CSV</button>
+      <button class="btn danger" onclick="clearLog()">🗑️ پاک کردن لاگ</button>
+    </div>
+    <div id="logTable"></div>
+  </div>
+
+  <div class="panel" id="tab-settings">
+    <h2>⚙️ تنظیمات سیستم</h2>
+    <div class="grid">
+      <div class="field"><label>نام کسب‌وکار</label><input id="set_company"></div>
+      <div class="field"><label>حد هشدار موجودی کم (تعداد)</label><input id="set_lowStock" type="number" min="0"></div>
+      <div class="field" style="grid-column:1/-1;"><label>شعب (با کاما جدا کنید)</label><input id="set_branches" placeholder="مرکزی, شعبه ۱, شعبه ۲"></div>
+    </div>
+    <button class="btn success" onclick="saveSettings()">✅ ذخیره تنظیمات</button>
+    <h3>📋 مدیریت شعب</h3>
+    <div id="brManage"></div>
+  </div>
+
+  <div class="panel" id="tab-backup">
+    <h2>💾 ذخیره‌سازی امن و پشتیبان‌گیری</h2>
+
+    <h3>🔐 ذخیره امن در فایل (پیشنهادی)</h3>
+    <div id="fileBanner" class="alert info"></div>
+    <div class="actions">
+      <button class="btn success" onclick="connectFile()">🔗 اتصال فایل امن (ذخیره خودکار)</button>
+      <button class="btn gray" onclick="writeFile(); toast('✅ ذخیره شد')">💾 ذخیره فوری در فایل</button>
+      <button class="btn gray" onclick="pullFromFile(false)">📂 خواندن مجدد از فایل</button>
+      <button class="btn danger" onclick="disconnectFile()">⛔ قطع اتصال فایل</button>
+    </div>
+    <div class="alert info" style="margin-top:10px;">
+      💡 <b>چگونه امن‌تر شود؟</b> فایل را در پوشه <b>Google Drive</b> یا <b>OneDrive</b> کامپیوترتان ذخیره کنید؛
+      با این کار هر تغییری خودکار به آن فایل می‌رود و روی فضای ابری هم نسخه پشتیبان دارید.
+      برای استفاده از هر دستگاه دیگری، فایل را با «بازگردانی» بارگذاری کنید.
+    </div>
+
+    <h3>⬇️ پشتیبان دستی</h3>
+    <div class="actions">
+      <button class="btn success" onclick="exportData()">⬇️ دانلود فایل پشتیبان (JSON)</button>
+      <label class="btn" style="display:inline-block;cursor:pointer;">
+        ⬆️ بازگردانی از فایل
+        <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)">
+      </label>
+      <button class="btn purple" onclick="exportAllCSV()">📊 دانلود همه داده‌ها (CSV)</button>
+      <button class="btn warn" onclick="loadDemo()">🧪 بارگذاری داده نمونه</button>
+      <button class="btn danger" onclick="resetAll()">🗑️ پاک کردن همه داده‌ها</button>
+    </div>
+    <h3>📦 وضعیت ذخیره‌سازی</h3>
+    <div id="storageInfo"></div>
+  </div>
+  `;
+}
+/* ==========================================================================
+   فرم‌ها
+   ========================================================================== */
+function buildForms() {
+  $("inForm").innerHTML = `
+    <div class="field"><label>شماره بارنامه *</label><input id="in_barname" placeholder="مثلا BN-1001"></div>
+    <div class="field"><label>تاریخ خرید (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="in_date" readonly></div></div>
+    <div class="field"><label>نام تامین‌کننده *</label><input id="in_supplier" list="dl_suppliers"><datalist id="dl_suppliers"></datalist></div>
+    <div class="field"><label>شماره تماس تامین‌کننده</label><input id="in_supplier_phone"></div>
+    <div class="field"><label>تحویل‌گیرنده *</label><input id="in_receiver"></div>
+    <div class="field"><label>شرکت *</label><input id="in_company" list="dl_companies"><datalist id="dl_companies"></datalist></div>
+    <div class="field"><label>نام موتور *</label><input id="in_name"></div>
+    <div class="field"><label>حجم</label><input id="in_volume" placeholder="مثلا 125cc"></div>
+    <div class="field"><label>تیپ</label><input id="in_type"></div>
+    <div class="field"><label>رنگ</label><input id="in_color"></div>
+    <div class="field"><label>سال ساخت</label><input id="in_year"></div>
+    <div class="field"><label>شماره شاسی *</label><input id="in_chassis" style="letter-spacing:1px;direction:ltr;text-align:left;"></div>
+    <div class="field"><label>شماره موتور</label><input id="in_engine" style="direction:ltr;text-align:left;"></div>
+    <div class="field"><label>شماره پلاک</label><input id="in_plate" style="direction:ltr;text-align:left;"></div>
+    <div class="field"><label>قیمت خرید (تومان) *</label><input id="in_price" class="num-fmt" placeholder="300,000,000" inputmode="numeric"></div>
+    <div class="field"><label>وضعیت خرید *</label>
+      <select id="in_payStatus">
+        <option value="نقدی">نقدی</option><option value="چک">چک</option>
+        <option value="اقساط">اقساط</option><option value="چکی اقساطی">چکی اقساطی</option>
+        <option value="معاوضه">معاوضه</option><option value="امانی">امانی</option>
+      </select>
+    </div>
+    <div class="field"><label>تعداد *</label><input id="in_qty" type="number" value="1" min="1" max="50"></div>
+    <div class="field"><label>مبلغ پیش‌پرداخت (تومان)</label><input id="in_prepay" class="num-fmt" placeholder="اختیاری"></div>
+    <div class="field" style="grid-column:1/-1;"><label>مشخصات فنی</label><textarea id="in_specs" rows="2"></textarea></div>
+    <div class="field" style="grid-column:1/-1;"><label>توضیحات</label><textarea id="in_note" rows="2"></textarea></div>
+  `;
+
+  $("outForm").innerHTML = `
+    <div class="field"><label>شماره قولنامه / رسید *</label><input id="out_receipt"></div>
+    <div class="field"><label>تاریخ (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="out_date" readonly></div></div>
+    <div class="field"><label>نوع خروج *</label>
+      <select id="out_type" onchange="toggleOutType()">
+        <option value="sale">فروش به مشتری/همکار</option>
+        <option value="transfer">انتقال به شعبه دیگر</option>
+      </select>
+    </div>
+    <div class="field" id="f_toBranch" style="display:none;"><label>به شعبه *</label><select id="out_to"></select></div>
+    <div class="field" id="f_transferKind" style="display:none;"><label>نوع انتقال</label>
+      <select id="out_transferKind">
+        <option value="فروش به شعبه">فروش به شعبه</option>
+        <option value="امانی">امانی</option>
+        <option value="جابه‌جایی">جابه‌جایی</option>
+      </select>
+    </div>
+    <div class="field" id="f_buyerType"><label>نوع خریدار</label>
+      <select id="out_buyerType" onchange="fillPayStatus()">
+        <option value="مشتری">مشتری</option><option value="همکار">همکار</option>
+      </select>
+    </div>
+    <div class="field" id="f_buyer"><label>نام خریدار *</label><input id="out_buyer" list="dl_buyers"><datalist id="dl_buyers"></datalist></div>
+    <div class="field" id="f_father"><label>نام پدر</label><input id="out_father"></div>
+    <div class="field" id="f_national"><label>کد ملی (۱۰ رقم)</label><input id="out_national" maxlength="10" inputmode="numeric"></div>
+    <div class="field" id="f_birth"><label>تاریخ تولد (شمسی)</label><div class="dp-wrap"><input class="dp-input" id="out_birth" readonly placeholder="1370/01/01"></div></div>
+    <div class="field" id="f_phone"><label>شماره تماس</label><input id="out_phone" inputmode="tel"></div>
+    <div class="field" id="f_payStatus"><label>وضعیت فروش *</label><select id="out_payStatus"></select></div>
+    <div class="field" id="f_salePrice"><label>قیمت فروش (تومان) *</label><input id="out_price" class="num-fmt" placeholder="400,000,000" inputmode="numeric"></div>
+    <div class="field" id="f_discount"><label>تخفیف (تومان)</label><input id="out_discount" class="num-fmt" placeholder="0"></div>
+    <div class="field" id="f_tradeIn"><label>معاوضه/پیش‌پرداخت (تومان)</label><input id="out_tradeIn" class="num-fmt" placeholder="0"></div>
+    <div class="field" id="f_address" style="grid-column:1/-1;"><label>آدرس</label><textarea id="out_address" rows="2"></textarea></div>
+    <div class="field" style="grid-column:1/-1;">
+      <label>انتخاب موتور موجود در شعبه *</label>
+      <input id="out_itemSearch" placeholder="🔍 ابتدا تایپ کنید تا فیلتر شود..." oninput="filterOutItems()" style="margin-bottom:6px;">
+      <select id="out_item" size="1"></select>
+      <div class="helper" id="out_itemHint"></div>
+    </div>
+    <div class="field" style="grid-column:1/-1;"><label>توضیحات</label><textarea id="out_note" rows="2"></textarea></div>
+  `;
+}
+
+/* ==========================================================================
+   انتخاب شعبه و ناوبری
+   ========================================================================== */
+function renderBranchTabs() {
+  const wrap = $("branchTabs");
+  wrap.innerHTML = "";
+  const allowed = canManage() ? branches() : branches().filter(b => currentUser && b === currentUser.branch);
+  allowed.forEach(b => {
+    const cnt = DB.items.filter(i => i.branch === b && i.status === STATUS.IN && !i.deleted).length;
+    const btn = document.createElement("button");
+    btn.innerHTML = `${esc(b)} <span class="cnt">${cnt}</span>`;
+    btn.onclick = () => selectBranch(b);
+    if (activeBranch === b) btn.classList.add("active");
+    wrap.appendChild(btn);
+  });
+  if (canManage()) {
+    const mgr = document.createElement("button");
+    const totalIn = DB.items.filter(i => i.status === STATUS.IN && !i.deleted).length;
+    mgr.innerHTML = `👔 مدیر مرکزی (همه شعب) <span class="cnt">${totalIn}</span>`;
+    mgr.className = "manager";
+    mgr.onclick = () => selectBranch(MANAGER);
+    if (activeBranch === MANAGER) mgr.classList.add("active");
+    wrap.appendChild(mgr);
+  }
+
+  const label = branchLabel(activeBranch);
+  ["dashBranchLabel", "inBranchLabel", "outBranchLabel", "cycBranchLabel", "invBranchLabel"].forEach(id => {
+    const el = $(id); if (el) el.textContent = label;
+  });
+  if ($("dashBranchLabel")) $("dashBranchLabel").textContent = activeBranch === MANAGER ? "👔 مدیر مرکزی - نمای کلی" : `شعبه: ${activeBranch}`;
+}
+
+function selectBranch(b) {
+  if (b === MANAGER && !canManage()) { toast("فقط مدیر می‌تواند همه شعب را ببیند", false); return; }
+  if (b !== MANAGER && !canManage() && currentUser && currentUser.branch !== b) { toast("دسترسی به این شعبه ندارید", false); return; }
+  activeBranch = b;
+  renderBranchTabs();
+  save();
+  const activeTab = document.querySelector("#mainNav button.active").dataset.tab;
+  refreshTab(activeTab);
+}
+
+const TAB_RENDERERS = {
+  dash: renderDashboard, inv: renderInventory, cycle: renderCycle, out: refreshOutItems,
+  report: renderReport, log: renderLog, settings: renderSettings,
+  backup: () => { renderStorageInfo(); refreshFileBanner(); }
+};
+function refreshFileBanner() {
+  if (fileHandle) setFileBanner("connected");
+  else if (!fsSupported()) setFileBanner("unsupported");
+  else setFileBanner("idle");
+}
+function refreshTab(tab) {
+  if (TAB_RENDERERS[tab]) TAB_RENDERERS[tab]();
+  if (tab === "in") { populateDatalists(); $("in_date").value = $("in_date").value || todayJalali(); }
+  if (tab === "settings") renderSettings();
+}
+
+function setupNav() {
+  document.querySelectorAll("#mainNav button").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll("#mainNav button").forEach(x => x.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      $("tab-" + b.dataset.tab).classList.add("active");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      refreshTab(b.dataset.tab);
+    };
+  });
+  document.querySelectorAll("#invTabs button").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll("#invTabs button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      uiState.invTab = b.dataset.invtab;
+      renderInventory();
+    };
+  });
+}
+
+function populateDatalists() {
+  const companies = [...new Set(DB.items.map(i => i.company).filter(Boolean))];
+  const suppliers = [...new Set(DB.items.map(i => i.supplier).filter(Boolean))];
+  const buyers = [...new Set(DB.items.map(i => i.saleInfo && i.saleInfo.buyer).filter(Boolean))];
+  const set = (id, arr) => { const el = $(id); if (el) el.innerHTML = arr.map(a => `<option value="${esc(a)}"></option>`).join(""); };
+  set("dl_companies", companies); set("dl_suppliers", suppliers); set("dl_buyers", buyers);
+}
+/* ==========================================================================
+   ورود کالا
+   ========================================================================== */
+function addEntry() {
+  if (isManager()) {
+    openModal("انتخاب شعبه مقصد", "شما به عنوان مدیر مرکزی وارد می‌شوید. شعبه مقصد را انتخاب کنید:", () => {
+      const sel = $("mgr_target");
+      doAddEntry(sel.value);
+      closeModal();
+    }, "ثبت", () => {
+      const box = $("modalMsg");
+      box.insertAdjacentHTML("beforeend",
+        `<div class="field" style="margin-top:10px;"><label>شعبه مقصد</label>
+         <select id="mgr_target">${branches().map(b => `<option>${esc(b)}</option>`).join("")}</select></div>`);
+    });
+    return;
+  }
+  doAddEntry(activeBranch);
+}
+
+function doAddEntry(branch) {
+  clearErrs($("inForm"));
+  const barname = $("in_barname").value.trim();
+  const date = $("in_date").value.trim();
+  const supplier = $("in_supplier").value.trim();
+  const receiver = $("in_receiver").value.trim();
+  const company = $("in_company").value.trim();
+  const name = $("in_name").value.trim();
+  const chassis = $("in_chassis").value.trim();
+  const qty = Math.max(1, parseInt($("in_qty").value) || 1);
+  const engine = $("in_engine").value.trim();
+  const plate = $("in_plate").value.trim();
+  const price = getNumber($("in_price"));
+
+  let ok = true;
+  ok &= validateField($("in_barname"), barname, "شماره بارنامه الزامی است");
+  ok &= validateField($("in_date"), date, "تاریخ خرید الزامی است");
+  ok &= validateField($("in_supplier"), supplier, "نام تامین‌کننده الزامی است");
+  ok &= validateField($("in_receiver"), receiver, "نام تحویل‌گیرنده الزامی است");
+  ok &= validateField($("in_company"), company, "نام شرکت الزامی است");
+  ok &= validateField($("in_name"), name, "نام موتور الزامی است");
+  ok &= validateField($("in_chassis"), chassis, "شماره شاسی الزامی است");
+  ok &= validateField($("in_price"), price > 0, "قیمت خرید باید بزرگ‌تر از صفر باشد");
+  if (!ok) { toast("لطفا خطاهای فرم را اصلاح کنید", false); focusFirstErr(); return; }
+
+  // هشدار شناسه‌های تکراری
+  const dups = [];
+  const norm = s => s.toLowerCase().trim();
+  DB.items.filter(i => !i.deleted).forEach(i => {
+    if (chassis && norm(i.chassis) === norm(chassis)) dups.push(`شاسی «${chassis}» (در ${i.branch})`);
+    if (engine && norm(i.engine) === norm(engine)) dups.push(`شماره موتور «${engine}» (در ${i.branch})`);
+    if (plate && norm(i.plate) === norm(plate)) dups.push(`شماره پلاک «${plate}» (در ${i.branch})`);
+  });
+  if (dups.length) {
+    openModal("⚠️ شناسه تکراری", `این موارد قبلا ثبت شده‌اند:<br><br><b>${dups.map(esc).join("<br>")}</b><br><br>آیا باز هم ثبت شود؟`, () => {
+      closeModal(); pushItems(branch, { barname, date, supplier, receiver, company, name, chassis, qty, plateSerial: "", price });
+    }, "بله، ثبت کن");
+    return;
+  }
+  pushItems(branch, { barname, date, supplier, receiver, company, name, chassis, qty, plateSerial: "", price });
+}
+
+function pushItems(branch, d) {
+  const now = new Date().toISOString();
+  const newIds = [];
+  for (let i = 0; i < d.qty; i++) {
+    const item = {
+      id: uid("it"), branch,
+      company: d.company, name: $("in_name").value.trim(),
+      volume: $("in_volume").value.trim(),
+      type: $("in_type").value.trim(),
+      color: $("in_color").value.trim(),
+      year: $("in_year").value.trim(),
+      chassis: d.qty > 1 ? `${d.chassis}-${i + 1}` : d.chassis,
+      engine: $("in_engine").value.trim(),
+      plate: $("in_plate").value.trim(),
+      price: d.price,
+      payStatus: $("in_payStatus").value,
+      prepay: getNumber($("in_prepay")),
+      specs: $("in_specs").value.trim(),
+      note: $("in_note").value.trim(),
+      supplier: d.supplier, supplierPhone: $("in_supplier_phone").value.trim(),
+      barname: d.barname, receiver: d.receiver,
+      dateIn: d.date, status: STATUS.IN,
+      saleInfo: null, exitInfo: null,
+      createdBy: currentUser ? currentUser.username : "",
+      createdAt: now
+    };
+    DB.items.push(item);
+    newIds.push(item.id);
+    DB.history.push({
+      id: uid("h"), itemId: item.id, branch,
+      action: "in", fromStatus: null, toStatus: STATUS.IN, date: d.date,
+      note: `ورود از بارنامه ${d.barname} - تامین‌کننده: ${d.supplier} - تحویل‌گیرنده: ${d.receiver}`,
+      by: currentUser ? currentUser.username : "",
+      createdAt: now
+    });
+  }
+  save({ items: newIds });
+  logActivity("ورود کالا", `${d.qty} × ${d.company} ${$("in_name").value.trim()} به ${branch} — بارنامه ${d.barname}`);
+  toast(`✅ ${d.qty} موتور در ${branch} ثبت شد`);
+  clearForm("in");
+  renderBranchTabs(); renderDashboard();
+}
+
+/* ==========================================================================
+   خروج کالا
+   ========================================================================== */
+function toggleOutType() {
+  const t = $("out_type").value;
+  const isSale = t === "sale";
+  $("f_toBranch").style.display = isSale ? "none" : "flex";
+  $("f_transferKind").style.display = isSale ? "none" : "flex";
+  ["f_buyer", "f_father", "f_national", "f_birth", "f_buyerType", "f_phone", "f_payStatus", "f_salePrice", "f_discount", "f_tradeIn", "f_address"]
+    .forEach(id => { $(id).style.display = isSale ? "flex" : "none"; });
+  if (isSale) { fillPayStatus(); }
+  refreshOutItems();
+}
+function fillPayStatus() {
+  const sel = $("out_payStatus");
+  if (!sel) return;
+  const buyerType = $("out_buyerType").value;
+  sel.innerHTML = "";
+  (buyerType === "همکار" ? COLLEAGUE_PAY : CUSTOMER_PAY).forEach(o => {
+    const op = document.createElement("option"); op.value = o; op.textContent = o;
+    sel.appendChild(op);
+  });
+}
+function filterOutItems() {
+  const q = ($("out_itemSearch").value || "").trim().toLowerCase();
+  const sel = $("out_item");
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- انتخاب کنید --</option>';
+  const from = isManager() ? null : activeBranch;
+  DB.items.forEach(en => {
+    if (en.status !== STATUS.IN || en.deleted) return;
+    if (from && en.branch !== from) return;
+    const txt = `[${en.branch}] ${en.company} ${en.name} ${en.color || ""} ${en.chassis} ${en.plate || ""}`.toLowerCase();
+    if (q && !txt.includes(q)) return;
+    const o = document.createElement("option");
+    o.value = en.id;
+    o.textContent = `[${en.branch}] ${en.company} ${en.name} - ${en.color || "-"} - شاسی:${en.chassis} - پلاک:${en.plate || "-"}`;
+    sel.appendChild(o);
+  });
+  sel.value = prev && sel.querySelector(`option[value="${prev}"]`) ? prev : "";
+  const n = sel.options.length - 1;
+  $("out_itemHint").textContent = n ? `${n} موتور موجود` : "⚠️ موتور موجودی در این شعبه یافت نشد";
+  $("out_itemHint").className = "helper";
+}
+function refreshOutItems() {
+  const to = $("out_to");
+  if (to) {
+    const cur = to.value;
+    to.innerHTML = "";
+    branches().forEach(b => { const o = document.createElement("option"); o.value = b; o.textContent = b; to.appendChild(o); });
+    to.value = cur || branches().find(b => b !== activeBranch) || branches()[0];
+  }
+  filterOutItems();
+}
+
+async function addExit() {
+  clearErrs($("outForm"));
+  const type = $("out_type").value;
+  const receipt = $("out_receipt").value.trim();
+  const date = $("out_date").value.trim();
+  const itemId = $("out_item").value;
+
+  let ok = true;
+  ok &= validateField($("out_receipt"), receipt, "شماره قولنامه/رسید الزامی است");
+  ok &= validateField($("out_date"), date, "تاریخ الزامی است");
+  ok &= validateField($("out_item"), itemId, "یک موتور انتخاب کنید");
+  const item = DB.items.find(e => e.id === itemId);
+  if (item && item.status !== STATUS.IN) { validateField($("out_item"), false, "موتور در وضعیت موجود نیست"); ok = false; }
+  if (!ok) { toast("لطفا خطاهای فرم را اصلاح کنید", false); focusFirstErr(); return; }
+
+  const from = item.branch;
+
+  if (type === "sale") {
+    const buyer = $("out_buyer").value.trim();
+    const national = $("out_national").value.trim();
+    ok &= validateField($("out_buyer"), buyer, "نام خریدار الزامی است");
+    ok &= validateField($("out_national"), !national || /^\d{10}$/.test(national), "کد ملی باید ۱۰ رقم باشد");
+    const salePrice = getNumber($("out_price"));
+    ok &= validateField($("out_price"), salePrice > 0, "قیمت فروش باید بزرگ‌تر از صفر باشد");
+    if (!ok) { toast("لطفا خطاهای فرم را اصلاح کنید", false); focusFirstErr(); return; }
+
+    const payStatus = $("out_payStatus").value;
+    item.saleInfo = await buildSaleRecord({
+      receipt, date, from, buyer,
+      father: $("out_father").value.trim(),
+      national, birth: $("out_birth").value.trim(),
+      buyerType: $("out_buyerType").value,
+      phone: $("out_phone").value.trim(),
+      address: $("out_address").value.trim(),
+      payStatus, salePrice,
+      discount: getNumber($("out_discount")),
+      tradeIn: getNumber($("out_tradeIn")),
+      note: $("out_note").value.trim()
+    });
+    item.saleDate = date;
+    item.soldBy = userTag();
+    changeStatusInternal(item, STATUS.SALE, `فروش به ${buyer} (${item.saleInfo.buyerType}) - قولنامه:${receipt} - وضعیت:${payStatus}`);
+  } else {
+    const to = $("out_to").value;
+    if (to === from) { toast("شعبه مقصد با مبدا یکسان است", false); return; }
+    const kind = $("out_transferKind").value;
+    item.exitInfo = { receipt, date, from, to, transferKind: kind, note: $("out_note").value.trim() };
+    changeStatusInternal(item, STATUS.OUT, `انتقال (${kind}) به ${to} - خروج از ${from} - رسید:${receipt}`);
+    const sourceBranch = from;
+    item.branch = to; item.status = STATUS.IN; item.dateIn = date;
+    DB.history.push({
+      id: uid("h"), itemId: item.id, branch: to,
+      action: "in", fromStatus: STATUS.OUT, toStatus: STATUS.IN, date,
+      note: `ورود به ${to} بابت انتقال (${kind}) از ${sourceBranch} - رسید:${receipt}`,
+      by: userTag(),
+      createdAt: new Date().toISOString()
+    });
+  }
+  save({ items: [item.id] });
+  logActivity("خروج کالا", type === "sale" ? `فروش ${item.company} ${item.name} — قولنامه ${receipt}` : `انتقال ${item.company} ${item.name} به ${item.branch}`);
+  toast("✅ خروج کالا ثبت شد");
+  clearForm("out");
+  toggleOutType();
+  renderBranchTabs(); renderDashboard();
+}
+
+function changeStatusInternal(item, newStatus, note) {
+  const old = item.status;
+  item.status = newStatus;
+  DB.history.push({
+    id: uid("h"), itemId: item.id, branch: item.branch,
+    action: "status", fromStatus: old, toStatus: newStatus,
+    date: todayJalali(), note: note || "تغییر وضعیت",
+    createdAt: new Date().toISOString()
+  });
+}
+/* ==========================================================================
+   جدول‌های عمومی
+   ========================================================================== */
+function itemsForActiveBranch() {
+  const base = DB.items.filter(i => !i.deleted);
+  if (isManager()) return base;
+  return base.filter(i => i.branch === activeBranch);
+}
+function globalSearch(item, q) {
+  if (!q) return true;
+  const s = q.toLowerCase();
+  const sale = decryptSale(item.saleInfo || {});
+  const fields = [sale.buyer, sale.father, item.branch,
+    item.name, item.company, item.volume, item.type, item.color, item.chassis, item.engine, item.plate,
+    item.supplier, item.barname, sale.receipt, sale.national, sale.phone, sale.payStatus,
+    sale.buyerType, item.receiver].filter(Boolean).map(x => String(x).toLowerCase());
+  return fields.some(f => f.includes(s));
+}
+function sortRows(rows, state) {
+  if (!state.key) return rows;
+  const k = state.key, dir = state.dir;
+  const val = it => {
+    if (k === "price") return it.price || 0;
+    if (k === "name") return (it.name || "");
+    if (k === "date") return jalaliToISO(it.dateIn || "");
+    return it[k] || "";
+  };
+  return [...rows].sort((a, b) => {
+    const x = val(a), y = val(b);
+    if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
+    return String(x).localeCompare(String(y), "fa") * dir;
+  });
+}
+function sortIndicator(state, key) {
+  if (state.key !== key) return " ⇅";
+  return state.dir === 1 ? " ▲" : " ▼";
+}
+function clickSort(table, key, state, rerender) {
+  if (state.key === key) state.dir *= -1; else { state.key = key; state.dir = 1; }
+  rerender();
+}
+
+/* ==========================================================================
+   چرخه موتورها
+   ========================================================================== */
+function resetCycleFilters() {
+  $("cyc_q").value = ""; $("cyc_status").value = ""; $("cyc_from").value = ""; $("cyc_to").value = "";
+  renderCycle();
+}
+function renderCycle() {
+  const q = ($("cyc_q") ? $("cyc_q").value : "").trim();
+  const fStatus = $("cyc_status") ? $("cyc_status").value : "";
+  const from = $("cyc_from") ? jalaliToISO($("cyc_from").value) : "";
+  const to = $("cyc_to") ? jalaliToISO($("cyc_to").value) : "";
+
+  let rows = itemsForActiveBranch().filter(it => {
+    if (fStatus && it.status !== fStatus) return false;
+    if (from && jalaliToISO(it.dateIn) < from) return false;
+    if (to && jalaliToISO(it.dateIn) > to) return false;
+    return globalSearch(it, q);
+  });
+  rows = sortRows(rows, uiState.sort.cycle);
+  $("cycCount").textContent = `${rows.length} مورد`;
+  if (!rows.length) { $("cycTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
+
+  $("cycTable").innerHTML = `<div style="overflow-x:auto;"><table>
+    <thead><tr>
+      <th onclick="clickSort(this,${"'cycle'"}, 'branch')">شعبه${sortIndicator(uiState.sort.cycle, "branch")}</th>
+      <th onclick="clickSort(this,${"'cycle'"}, 'name')">شرکت / نام${sortIndicator(uiState.sort.cycle, "name")}</th>
+      <th class="no-sort">پلاک</th>
+      <th class="no-sort">شاسی</th>
+      <th class="no-sort">مشتری/همکار</th>
+      <th class="no-sort">کد ملی</th>
+      <th class="no-sort">وضعیت فروش</th>
+      <th onclick="clickSort(this,${"'cycle'"}, 'status')">وضعیت${sortIndicator(uiState.sort.cycle, "status")}</th>
+      <th class="no-sort">عملیات</th>
+    </tr></thead><tbody>` +
+    rows.map(it => {
+      const s = decryptSale(it.saleInfo || {});
+      const nextLabel = { "موجود": "💰 فروش", "رزرو": "💰 فروش", "فروش": "📤 خروج", "خروج": "🔄 برگشتی", "برگشتی": "✅ بازگشت" }[it.status] || "—";
+      return `<tr>
+        <td>${esc(it.branch)}</td>
+        <td><b>${esc(it.company)}</b> ${esc(it.name)}</td>
+        <td style="direction:ltr;">${esc(it.plate) || "-"}</td>
+        <td style="font-size:10px;direction:ltr;">${esc(it.chassis) || "-"}</td>
+        <td>${esc(s.buyer) || "-"}</td>
+        <td style="font-size:10px;direction:ltr;">${maskNational(s.national)}</td>
+        <td>${s.payStatus ? payBadge(s.payStatus) : "-"}</td>
+        <td>${statusBadge(it.status)}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn small warn" onclick="nextStatusClick('${it.id}')">${nextLabel}</button>
+          <button class="btn small success" onclick="editItem('${it.id}')">✏️</button>
+          <button class="btn small" onclick="showHistory('${it.id}')">📜</button>
+        </td>
+      </tr>`;
+    }).join("") + "</tbody></table></div>";
+}
+
+function exportCycleCSV() {
+  const rows = [["شعبه", "شرکت", "نام", "حجم", "رنگ", "شاسی", "پلاک", "مشتری", "کد ملی", "وضعیت فروش", "وضعیت", "قیمت خرید", "قیمت فروش"]];
+  itemsForActiveBranch().forEach(it => {
+    const s = it.saleInfo || {};
+    rows.push([it.branch, it.company, it.name, it.volume, it.color, it.chassis, it.plate, s.buyer, s.national, s.payStatus, it.status, it.price, s.salePrice]);
+  });
+  downloadCSV(`cycle-${todayJalali().replace(/\//g, "-")}.csv`, rows);
+  toast("✅ فایل CSV دانلود شد");
+}
+
+/* ==========================================================================
+   تغییر وضعیت
+   ========================================================================== */
+function nextStatusClick(itemId) {
+  const item = DB.items.find(e => e.id === itemId);
+  if (!item) return;
+  if (item.status === STATUS.IN || item.status === STATUS.RESERVED) openSaleModal(item);
+  else if (item.status === STATUS.SALE) {
+    openModal("تایید خروج", `خروج موتور <b>${esc(item.company)} ${esc(item.name)}</b> (پلاک: ${esc(item.plate) || "-"})؟`, () => {
+      changeStatusInternal(item, STATUS.OUT, "خروج قطعی از انبار");
+      save({ items: [item.id] }); closeModal(); toast("✅ خروج ثبت شد"); renderCycle(); renderDashboard();
+    });
+  } else if (item.status === STATUS.OUT) {
+    openModal("ثبت برگشتی", `موتور <b>${esc(item.company)} ${esc(item.name)}</b> برگشتی شود؟`, () => {
+      changeStatusInternal(item, STATUS.RETURN, "ثبت برگشتی");
+      save({ items: [item.id] }); closeModal(); toast("🔄 برگشتی ثبت شد"); renderCycle(); renderDashboard();
+    });
+  } else if (item.status === STATUS.RETURN) {
+    openModal("بازگشت به انبار", `موتور <b>${esc(item.company)} ${esc(item.name)}</b> به انبار برگردد؟`, () => {
+      changeStatusInternal(item, STATUS.IN, "بازگشت به موجودی");
+      save({ items: [item.id] }); closeModal(); toast("✅ به موجودی بازگشت"); renderCycle(); renderDashboard();
+    });
+  }
+}
+
+function openSaleModal(item) {
+  const html = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;">
+      <div class="field"><label>نوع خریدار</label><select id="m_buyerType" onchange="mFillPay()"><option>مشتری</option><option>همکار</option></select></div>
+      <div class="field"><label>نام خریدار *</label><input id="m_buyer"></div>
+      <div class="field"><label>نام پدر</label><input id="m_father"></div>
+      <div class="field"><label>کد ملی</label><input id="m_national" maxlength="10"></div>
+      <div class="field"><label>تاریخ تولد</label><div class="dp-wrap"><input class="dp-input" id="m_birth" readonly></div></div>
+      <div class="field"><label>شماره تماس</label><input id="m_phone"></div>
+      <div class="field"><label>وضعیت فروش</label><select id="m_payStatus"></select></div>
+      <div class="field"><label>قیمت فروش (تومان)</label><input id="m_price" class="num-fmt"></div>
+      <div class="field"><label>قرعه‌کشی/قولنامه *</label><input id="m_receipt"></div>
+      <div class="field" style="grid-column:1/-1;"><label>آدرس</label><textarea id="m_address" rows="2"></textarea></div>
+    </div>`;
+  openModal("اطلاعات فروش", `موتور: <b>${esc(item.company)} ${esc(item.name)}</b> - شاسی: ${esc(item.chassis)} - پلاک: ${esc(item.plate) || "-"}${html}`, async () => {
+    clearErrs($("modalMsg"));
+    const buyer = $("m_buyer").value.trim();
+    const receipt = $("m_receipt").value.trim();
+    const national = $("m_national").value.trim();
+    let ok = true;
+    ok &= validateField($("m_buyer"), buyer, "نام خریدار الزامی است");
+    ok &= validateField($("m_receipt"), receipt, "شماره قولنامه الزامی است");
+    ok &= validateField($("m_national"), !national || /^\d{10}$/.test(national), "کد ملی ۱۰ رقم");
+    if (!ok) { toast("خطاهای فرم را اصلاح کنید", false); focusFirstErr(); return; }
+    item.saleInfo = await buildSaleRecord({
+      buyer, father: $("m_father").value.trim(), national, birth: $("m_birth").value.trim(),
+      buyerType: $("m_buyerType").value, phone: $("m_phone").value.trim(),
+      address: $("m_address").value.trim(), payStatus: $("m_payStatus").value,
+      salePrice: getNumber($("m_price")), receipt, date: todayJalali(), discount: 0, tradeIn: 0
+    });
+    item.saleDate = item.saleInfo.date;
+    item.soldBy = userTag();
+    changeStatusInternal(item, STATUS.SALE, `فروش به ${buyer} (${item.saleInfo.buyerType}) - قولنامه:${receipt}`);
+    save({ items: [item.id] }); closeModal(); toast("✅ فروش ثبت شد");
+    renderCycle(); renderDashboard(); renderBranchTabs();
+  }, "ثبت فروش", () => {
+    mFillPay();
+    attachNumFmt($("modalMsg"));
+    buildJalaliPicker($("m_birth"));
+  });
+}
+function mFillPay() {
+  const sel = $("m_payStatus"); if (!sel) return;
+  sel.innerHTML = "";
+  ($("m_buyerType").value === "همکار" ? COLLEAGUE_PAY : CUSTOMER_PAY).forEach(o => {
+    const op = document.createElement("option"); op.value = o; op.textContent = o; sel.appendChild(op);
+  });
+}
+
+/* ==========================================================================
+   ویرایش
+   ========================================================================== */
+function editItem(itemId) {
+  const it = DB.items.find(i => i.id === itemId);
+  if (!it) return;
+  const s = decryptSale(it.saleInfo || {});
+  const allFields = ["نقدی", "چک", "اقساط", "چکی اقساطی", "معاوضه", "امانی"];
+  const branchLocked = !isManager();
+  const html = `
+    <h4 style="color:#2a5298;margin:12px 0 6px;">مشخصات موتور</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="field"><label>شرکت</label><input id="e_company" value="${esc(it.company)}"></div>
+      <div class="field"><label>نام موتور</label><input id="e_name" value="${esc(it.name)}"></div>
+      <div class="field"><label>حجم</label><input id="e_volume" value="${esc(it.volume)}"></div>
+      <div class="field"><label>تیپ</label><input id="e_type" value="${esc(it.type)}"></div>
+      <div class="field"><label>رنگ</label><input id="e_color" value="${esc(it.color)}"></div>
+      <div class="field"><label>سال</label><input id="e_year" value="${esc(it.year)}"></div>
+      <div class="field"><label>شاسی</label><input id="e_chassis" value="${esc(it.chassis)}" style="direction:ltr;"></div>
+      <div class="field"><label>موتور</label><input id="e_engine" value="${esc(it.engine)}" style="direction:ltr;"></div>
+      <div class="field"><label>پلاک</label><input id="e_plate" value="${esc(it.plate)}" style="direction:ltr;"></div>
+      <div class="field"><label>قیمت خرید (تومان)</label><input id="e_price" class="num-fmt" value="${(it.price || 0).toLocaleString("en-US")}"></div>
+      <div class="field"><label>وضعیت خرید</label><select id="e_payStatus">${allFields.map(x => `<option ${it.payStatus === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+      <div class="field"><label>شعبه</label><select id="e_branch" ${branchLocked ? "disabled" : ""}>${branches().map(b => `<option ${it.branch === b ? "selected" : ""}>${esc(b)}</option>`).join("")}</select></div>
+      <div class="field"><label>تامین‌کننده</label><input id="e_supplier" value="${esc(it.supplier)}"></div>
+      <div class="field"><label>بارنامه</label><input id="e_barname" value="${esc(it.barname)}"></div>
+      <div class="field"><label>تحویل‌گیرنده</label><input id="e_receiver" value="${esc(it.receiver)}"></div>
+      <div class="field"><label>وضعیت</label><select id="e_status">${Object.values(STATUS).map(x => `<option ${it.status === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+    </div>
+    ${s.buyer ? `
+    <h4 style="color:#2a5298;margin:14px 0 6px;">اطلاعات فروش</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="field"><label>نام خریدار</label><input id="e_buyer" value="${esc(s.buyer)}"></div>
+      <div class="field"><label>نام پدر</label><input id="e_father" value="${esc(s.father)}"></div>
+      <div class="field"><label>کد ملی</label><input id="e_national" value="${esc(s.national)}" maxlength="10"></div>
+      <div class="field"><label>تلفن</label><input id="e_phone" value="${esc(s.phone)}"></div>
+      <div class="field"><label>وضعیت فروش</label><select id="e_paySale">${["نقدی", "چکی", "اقساطی"].map(x => `<option ${s.payStatus === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+      <div class="field"><label>قیمت فروش</label><input id="e_salePrice" class="num-fmt" value="${(s.salePrice || 0).toLocaleString("en-US")}"></div>
+      <div class="field"><label>شماره قولنامه</label><input id="e_receipt" value="${esc(s.receipt)}"></div>
+      <div class="field" style="grid-column:1/-1;"><label>آدرس</label><textarea id="e_address" rows="2">${esc(s.address)}</textarea></div>
+    </div>` : ""}`;
+  openModal("✏️ ویرایش موتور", html, async () => {
+    const oldBranch = it.branch, oldStatus = it.status;
+    it.company = $("e_company").value.trim(); it.name = $("e_name").value.trim();
+    it.volume = $("e_volume").value.trim(); it.type = $("e_type").value.trim();
+    it.color = $("e_color").value.trim(); it.year = $("e_year").value.trim();
+    it.chassis = $("e_chassis").value.trim(); it.engine = $("e_engine").value.trim();
+    it.plate = $("e_plate").value.trim();
+    it.price = Number($("e_price").value.replace(/[^\d]/g, "")) || 0;
+    it.payStatus = $("e_payStatus").value;
+    if (!branchLocked) it.branch = $("e_branch").value;
+    it.supplier = $("e_supplier").value.trim(); it.barname = $("e_barname").value.trim(); it.receiver = $("e_receiver").value.trim();
+    const newStatus = $("e_status").value;
+    if (s.buyer) {
+      it.saleInfo = await buildSaleRecord(Object.assign({}, s, {
+        buyer: $("e_buyer").value.trim(), father: $("e_father").value.trim(),
+        national: $("e_national").value.trim(), phone: $("e_phone").value.trim(),
+        payStatus: $("e_paySale").value,
+        salePrice: Number($("e_salePrice").value.replace(/[^\d]/g, "")) || 0,
+        receipt: $("e_receipt").value.trim(), address: $("e_address").value.trim()
+      }));
+    }
+    if (oldBranch !== it.branch) {
+      DB.history.push({ id: uid("h"), itemId: it.id, branch: it.branch, action: "status", fromStatus: null, toStatus: null, date: todayJalali(), note: `ویرایش: انتقال از ${oldBranch} به ${it.branch}`, by: userTag(), createdAt: new Date().toISOString() });
+    }
+    if (oldStatus !== newStatus) changeStatusInternal(it, newStatus, "تغییر وضعیت از طریق ویرایش");
+    DB.history.push({ id: uid("h"), itemId: it.id, branch: it.branch, action: "edit", fromStatus: it.status, toStatus: it.status, date: todayJalali(), note: `ویرایش اطلاعات توسط ${userTag()}`, by: userTag(), createdAt: new Date().toISOString() });
+    save({ items: [it.id] }); closeModal(); toast("✅ ویرایش شد");
+    renderCycle(); renderInventory(); renderDashboard(); renderBranchTabs();
+  }, "ذخیره", () => { attachNumFmt($("modalMsg")); });
+}
+
+/* ==========================================================================
+   تاریخچه
+   ========================================================================== */
+function historyCard(h) {
+  const it = DB.items.find(i => i.id === h.itemId);
+  if (!it) return "";
+  const sale = decryptSale(it.saleInfo || {}), exit = it.exitInfo || {};
+  const customerLabel = sale.buyer ? `${sale.buyer} (${sale.buyerType || "مشتری"})` : (exit.to || "-");
+  return `<div class="history-item">
+    <div>
+      <span class="row-kv"><b>رخداد:</b> ${actionLabel(h.action)}</span>
+      <span class="row-kv"><b>تاریخ:</b> ${esc(h.date) || "-"}</span>
+      <span class="row-kv"><b>شعبه:</b> ${esc(h.branch) || esc(it.branch)}</span>
+      <span class="row-kv"><b>از→به:</b> ${esc(h.fromStatus) || "-"} → ${esc(h.toStatus) || "-"}</span>
+      ${h.by ? `<span class="row-kv"><b>کاربر:</b> ${esc(h.by)}</span>` : ""}
+    </div>
+    <div>
+      <span class="row-kv"><b>موتور:</b> ${esc(it.company)} ${esc(it.name)}</span>
+      <span class="row-kv"><b>پلاک:</b> ${esc(it.plate) || "-"}</span>
+      <span class="row-kv"><b>مشتری/همکار:</b> ${esc(customerLabel)}</span>
+      <span class="row-kv"><b>قولنامه:</b> ${esc(sale.receipt || exit.receipt) || "-"}</span>
+    </div>
+    <div class="meta">${esc(h.note) || ""}</div>
+  </div>`;
+}
+function actionLabel(a) {
+  return { in: "📥 ورود", sale: "💰 فروش", transfer: "🔀 انتقال", return: "🔄 برگشتی", status: "🔄 تغییر وضعیت", edit: "✏️ ویرایش" }[a] || a;
+}
+function statusBadge(s) {
+  const map = { "موجود": "b-in", "رزرو": "b-trust", "فروش": "b-sale", "خروج": "b-out", "برگشتی": "b-return" };
+  return `<span class="badge ${map[s] || ""}">${esc(s)}</span>`;
+}
+function payBadge(s) {
+  const map = { "نقدی": "b-cash", "چکی": "b-check", "اقساطی": "b-inst", "چک": "b-check", "اقساط": "b-inst", "چکی اقساطی": "b-inst", "معاوضه": "b-transfer", "امانی": "b-trust" };
+  return `<span class="badge ${map[s] || ""}">${esc(s)}</span>`;
+}
+function showHistory(itemId) {
+  const item = DB.items.find(i => i.id === itemId);
+  if (!item) return;
+  const hist = DB.history.filter(h => h.itemId === itemId).sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+  const head = `<div class="info-grid">
+    <div><b>نام موتور:</b> ${esc(item.company)} ${esc(item.name)}</div>
+    <div><b>شاسی:</b> ${esc(item.chassis) || "-"}</div>
+    <div><b>موتور:</b> ${esc(item.engine) || "-"}</div>
+    <div><b>پلاک:</b> ${esc(item.plate) || "-"}</div>
+    <div><b>رنگ:</b> ${esc(item.color) || "-"}</div>
+    <div><b>شعبه فعلی:</b> ${esc(item.branch)}</div>
+    <div><b>تامین‌کننده:</b> ${esc(item.supplier) || "-"}</div>
+    <div><b>بارنامه:</b> ${esc(item.barname) || "-"}</div>
+    <div><b>قیمت خرید:</b> ${money(item.price)}</div>
+    <div><b>وضعیت فعلی:</b> ${statusBadge(item.status)}</div>
+    ${item.createdBy ? `<div><b>ثبت‌کننده:</b> ${esc(item.createdBy)}</div>` : ""}
+  </div>`;
+  const body = hist.length ? hist.map(h => historyCard(h)).join("") : '<div class="empty">تاریخچه‌ای ثبت نشده</div>';
+  openModal(`📜 تاریخچه: ${esc(item.company)} ${esc(item.name)}`, head + body, null);
+}
+
+/* ==========================================================================
+   حذف
+   ========================================================================== */
+function deleteItem(itemId) {
+  const it = DB.items.find(i => i.id === itemId);
+  if (!it) return;
+  openModal("حذف موتور", `آیا موتور <b>${esc(it.company)} ${esc(it.name)}</b> (شاسی: ${esc(it.chassis) || "-"}) حذف شود؟<br>تاریخچه مرتبط نیز پاک می‌شود.`, () => {
+    DB.items = DB.items.filter(i => i.id !== itemId);
+    DB.history = DB.history.filter(h => h.itemId !== itemId);
+    if (typeof markDeletedItem === "function") markDeletedItem(itemId);
+    save(); closeModal(); toast("🗑️ حذف شد");
+    renderInventory(); renderCycle(); renderDashboard(); renderBranchTabs();
+  }, "حذف");
+}
+/* ==========================================================================
+   موجودی
+   ========================================================================== */
+function resetInvFilters() {
+  $("inv_q").value = ""; $("inv_status").value = ""; $("inv_company").value = ""; $("inv_sort").value = "";
+  renderInventory();
+}
+function renderInventory() {
+  const q = ($("inv_q") ? $("inv_q").value : "").trim();
+  const fStatus = $("inv_status") ? $("inv_status").value : "";
+  const fCompany = $("inv_company") ? $("inv_company").value : "";
+  const sortSel = $("inv_sort") ? $("inv_sort").value : "";
+  const tab = uiState.invTab;
+
+  const companies = [...new Set(DB.items.map(i => i.company).filter(Boolean))].sort();
+  const cSel = $("inv_company");
+  if (cSel) cSel.innerHTML = '<option value="">همه</option>' + companies.map(c => `<option ${c === fCompany ? "selected" : ""}>${esc(c)}</option>`).join("");
+
+  // تب ارزش‌گذاری
+  if (tab === "value") { renderInvValue(); return; }
+  if (tab === "age") { renderInvAge(); return; }
+  $("invToolbar").style.display = "flex";
+
+  let rows = itemsForActiveBranch().filter(en => {
+    if (tab === "active" && en.status !== STATUS.IN) return false;
+    if (tab === "low" && en.status !== STATUS.IN) return false;
+    if (fStatus && en.status !== fStatus) return false;
+    if (fCompany && en.company !== fCompany) return false;
+    return globalSearch(en, q);
+  });
+
+  if (tab === "low") {
+    const groups = {};
+    rows.forEach(r => { const k = r.company + "|" + r.name; groups[k] = (groups[k] || 0) + 1; });
+    const lowKeys = new Set(Object.keys(groups).filter(k => groups[k] <= (DB.settings.lowStock || 3)));
+    rows = rows.filter(r => lowKeys.has(r.company + "|" + r.name));
+  }
+
+  if (sortSel === "price_desc") rows.sort((a, b) => (b.price || 0) - (a.price || 0));
+  else if (sortSel === "price_asc") rows.sort((a, b) => (a.price || 0) - (b.price || 0));
+  else if (sortSel === "name") rows.sort((a, b) => (a.name || "").localeCompare(b.name || "", "fa"));
+  else if (sortSel === "date_desc") rows.sort((a, b) => jalaliToISO(b.dateIn).localeCompare(jalaliToISO(a.dateIn)));
+  else rows = sortRows(rows, uiState.sort.inv);
+
+  const totalVal = rows.reduce((s, r) => s + (r.price || 0), 0);
+  $("invCount").textContent = `${rows.length} قلم — ارزش خرید: ${money(totalVal)} ${DB.settings.currency}`;
+
+  if (!rows.length) { $("invTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
+
+  $("invTable").innerHTML = `<div style="overflow-x:auto;"><table>
+    <thead><tr>
+      <th class="no-sort">#</th>
+      <th onclick="clickSort(this,'inv','branch')">شعبه${sortIndicator(uiState.sort.inv, "branch")}</th>
+      <th onclick="clickSort(this,'inv','company')">شرکت${sortIndicator(uiState.sort.inv, "company")}</th>
+      <th onclick="clickSort(this,'inv','name')">نام موتور${sortIndicator(uiState.sort.inv, "name")}</th>
+      <th class="no-sort">رنگ</th>
+      <th class="no-sort">شاسی</th>
+      <th class="no-sort">پلاک</th>
+      <th class="no-sort">تامین‌کننده</th>
+      <th onclick="clickSort(this,'inv','price')">قیمت خرید${sortIndicator(uiState.sort.inv, "price")}</th>
+      <th class="no-sort">وضعیت</th>
+      <th class="no-sort">عملیات</th>
+    </tr></thead><tbody>` +
+    rows.map((en, i) => `<tr>
+      <td>${i + 1}</td>
+      <td>${esc(en.branch)}</td>
+      <td>${esc(en.company)}</td>
+      <td>${esc(en.name)}</td>
+      <td>${esc(en.color) || "-"}</td>
+      <td style="font-size:10px;direction:ltr;">${esc(en.chassis)}</td>
+      <td style="direction:ltr;">${esc(en.plate) || "-"}</td>
+      <td>${esc(en.supplier) || "-"}</td>
+      <td>${money(en.price)}</td>
+      <td>${statusBadge(en.status)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn small success" onclick="editItem('${en.id}')">✏️</button>
+        <button class="btn small" onclick="showHistory('${en.id}')">📜</button>
+        <button class="btn small danger" onclick="deleteItem('${en.id}')">🗑️</button>
+      </td>
+    </tr>`).join("") + "</tbody></table></div>";
+}
+
+function renderInvAge() {
+  const items = itemsForActiveBranch().filter(i => i.status === STATUS.IN);
+  const buckets = [
+    { label: "۰–۳۰ روز", min: 0, max: 30 },
+    { label: "۳۱–۶۰ روز", min: 31, max: 60 },
+    { label: "۶۱–۹۰ روز", min: 61, max: 90 },
+    { label: "بیش از ۹۰ روز", min: 91, max: Infinity }
+  ];
+  const withAge = items.map(i => ({ it: i, age: -daysUntil(i.dateIn) || 0 }));
+  const counts = buckets.map(b => withAge.filter(x => x.age >= b.min && x.age <= b.max).length);
+  const total = withAge.length || 1;
+  const stale = withAge.filter(x => x.age > 90).sort((a, b) => b.age - a.age);
+  $("invToolbar").style.display = "none";
+  $("invCount").textContent = "";
+  $("invTable").innerHTML = `
+    <div class="kpi-mini" style="margin-top:12px;">
+      <div><b>${withAge.length}</b>موتور موجود</div>
+      <div><b>${withAge.length ? Math.round(withAge.reduce((s, x) => s + x.age, 0) / withAge.length) : 0}</b>میانگین عمر (روز)</div>
+      <div><b>${stale.length}</b>بیش از ۹۰ روز</div>
+    </div>
+    <h3>⏳ توزیع عمر موجودی</h3>
+    <div style="overflow-x:auto;"><table><thead><tr><th>بازه</th><th>تعداد</th><th>سهم</th><th>نمودار</th></tr></thead><tbody>
+    ${buckets.map((b, i) => `<tr><td>${b.label}</td><td>${counts[i]}</td><td>${Math.round(counts[i] / total * 100)}%</td>
+      <td><div class="bar"><span style="width:${Math.round(counts[i] / total * 100)}%"></span></div></td></tr>`).join("")}
+    </tbody></table></div>
+    <h3>⚠️ موتورهای خواب‌مانده (بیش از ۹۰ روز)</h3>
+    ${stale.length ? `<div style="overflow-x:auto;"><table><thead><tr><th>شعبه</th><th>شرکت/نام</th><th>شاسی</th><th>رنگ</th><th>قیمت خرید</th><th>تاریخ ورود</th><th>عمر (روز)</th></tr></thead><tbody>
+    ${stale.map(x => `<tr><td>${esc(x.it.branch)}</td><td>${esc(x.it.company)} ${esc(x.it.name)}</td>
+      <td style="direction:ltr;">${esc(x.it.chassis) || "-"}</td><td>${esc(x.it.color) || "-"}</td>
+      <td>${money(x.it.price)}</td><td>${esc(x.it.dateIn)}</td>
+      <td><b class="neg">${x.age}</b></td></tr>`).join("")}
+    </tbody></table></div>` : '<div class="empty">موتور خواب‌مانده‌ای وجود ندارد 👌</div>'}
+    <div class="actions"><button class="btn gray" onclick="printSection()">🖨️ چاپ</button></div>`;
+}
+
+function renderInvValue() {
+  const items = itemsForActiveBranch().filter(i => i.status === STATUS.IN);
+  const byBranch = {}, byCompany = {};
+  let totalVal = 0;
+  items.forEach(i => {
+    totalVal += i.price || 0;
+    byBranch[i.branch] = (byBranch[i.branch] || 0) + (i.price || 0);
+    byCompany[i.company] = (byCompany[i.company] || 0) + (i.price || 0);
+  });
+  const row = (k, v, tot) => `<tr><td>${esc(k)}</td><td>${money(v)}</td><td>${tot ? Math.round(v / tot * 100) : 0}%</td>
+    <td><div class="bar"><span style="width:${tot ? Math.round(v / tot * 100) : 0}%"></span></div></td></tr>`;
+  $("invTable").innerHTML = `
+    <div class="kpi-mini" style="margin-top:12px;">
+      <div><b>${items.length}</b> موتور موجود</div>
+      <div><b>${money(totalVal)}</b>ارزش کل (${DB.settings.currency})</div>
+      <div><b>${money(items.length ? Math.round(totalVal / items.length) : 0)}</b>میانگین قیمت</div>
+    </div>
+    <h3>ارزش موجودی به تفکیک شعبه</h3>
+    <table><thead><tr><th>شعبه</th><th>ارزش</th><th>سهم</th><th>نمودار</th></tr></thead><tbody>
+    ${Object.entries(byBranch).sort((a, b) => b[1] - a[1]).map(([k, v]) => row(k, v, totalVal)).join("") || '<tr><td colspan="4" class="empty">داده‌ای نیست</td></tr>'}
+    </tbody></table>
+    <h3>ارزش موجودی به تفکیک شرکت</h3>
+    <table><thead><tr><th>شرکت</th><th>ارزش</th><th>سهم</th><th>نمودار</th></tr></thead><tbody>
+    ${Object.entries(byCompany).sort((a, b) => b[1] - a[1]).map(([k, v]) => row(k, v, totalVal)).join("") || '<tr><td colspan="4" class="empty">داده‌ای نیست</td></tr>'}
+    </tbody></table>`;
+  $("invCount").textContent = "";
+  $("invToolbar").style.display = "none";
+}
+
+function exportInvCSV() {
+  const rows = [["شعبه", "شرکت", "نام", "حجم", "تیپ", "رنگ", "سال", "شاسی", "موتور", "پلاک", "تامین‌کننده", "بارنامه", "قیمت خرید", "وضعیت", "تاریخ ورود"]];
+  itemsForActiveBranch().forEach(en => rows.push([en.branch, en.company, en.name, en.volume, en.type, en.color, en.year, en.chassis, en.engine, en.plate, en.supplier, en.barname, en.price, en.status, en.dateIn]));
+  downloadCSV(`inventory-${todayJalali().replace(/\//g, "-")}.csv`, rows);
+  toast("✅ فایل CSV دانلود شد");
+}
+/* ==========================================================================
+   داشبورد
+   ========================================================================== */
+function renderDashboard() {
+  const items = itemsForActiveBranch();
+  const total = items.length;
+  const inStock = items.filter(i => i.status === STATUS.IN).length;
+  const saleCount = items.filter(i => i.status === STATUS.SALE).length;
+  const outCount = items.filter(i => i.status === STATUS.OUT).length;
+  const returnCount = items.filter(i => i.status === STATUS.RETURN).length;
+  const reserved = items.filter(i => i.status === STATUS.RESERVED).length;
+  const totalSales = items.filter(i => i.saleInfo).reduce((s, i) => s + (i.saleInfo.salePrice || 0) - (i.saleInfo.discount || 0), 0);
+  const totalBuys = items.reduce((s, i) => s + (i.price || 0), 0);
+
+  $("headerStats").textContent = isManager()
+    ? `👔 مدیر مرکزی | موجود: ${inStock} | کل موتورها: ${total}`
+    : `🏢 ${activeBranch} | موجود: ${inStock} | کل: ${total}`;
+
+  $("dashCards").innerHTML = `
+    <div class="stat-card"><div class="num">${total}</div><div class="lbl">🏍️ کل موتورها</div></div>
+    <div class="stat-card green"><div class="num">${inStock}</div><div class="lbl">📦 موجود</div></div>
+    <div class="stat-card purple"><div class="num">${reserved}</div><div class="lbl">🔒 رزرو</div></div>
+    <div class="stat-card orange"><div class="num">${saleCount}</div><div class="lbl">💰 فروش</div></div>
+    <div class="stat-card red"><div class="num">${outCount}</div><div class="lbl">📤 خروج</div></div>
+    <div class="stat-card"><div class="num">${returnCount}</div><div class="lbl">🔄 برگشتی</div></div>
+    <div class="stat-card green"><div class="num">${money(totalSales)}</div><div class="lbl">💵 مجموع فروش</div></div>
+    <div class="stat-card orange"><div class="num">${money(totalBuys)}</div><div class="lbl">🛒 مجموع خرید</div></div>`;
+
+  // هشدارها
+  const alerts = [];
+  const lowGroups = {};
+  items.filter(i => i.status === STATUS.IN).forEach(i => { const k = i.company + "|" + i.name; lowGroups[k] = (lowGroups[k] || 0) + 1; });
+  const lows = Object.entries(lowGroups).filter(([, c]) => c <= (DB.settings.lowStock || 3));
+  if (lows.length) alerts.push(`<div class="alert red">⚠️ <b>${lows.length} مدل</b> موجودی کم دارد: ${lows.map(([k, c]) => `${esc(k.split("|").join(" "))} (${c})`).join("، ")}</div>`);
+  $("dashAlerts").innerHTML = alerts.join("");
+
+  renderSalesChart(items);
+  renderBranchCards();
+  renderTopModels(items);
+
+  let recent;
+  if (isManager()) recent = [...DB.history].slice(-10).reverse();
+  else recent = DB.history.filter(h => h.branch === activeBranch).slice(-10).reverse();
+  $("recentLog").innerHTML = recent.length ? recent.map(h => historyCard(h)).join("") : '<div class="empty">رخدادی ثبت نشده</div>';
+}
+
+function renderBranchCards() {
+  $("branchCards").innerHTML = branches().map(b => {
+    const c = DB.items.filter(i => i.branch === b && i.status === STATUS.IN).length;
+    const val = DB.items.filter(i => i.branch === b && i.status === STATUS.IN).reduce((s, i) => s + (i.price || 0), 0);
+    const isActive = activeBranch === b;
+    return `<div class="stat-card ${isActive ? "green" : ""}" style="margin-bottom:8px;">
+      <div class="num">${c}</div><div class="lbl">${esc(b)}${isActive ? " (فعال)" : ""} — ${money(val)}</div></div>`;
+  }).join("");
+}
+
+function renderTopModels(items) {
+  const groups = {};
+  items.forEach(i => {
+    const k = i.company + " " + i.name;
+    if (!groups[k]) groups[k] = { sold: 0, revenue: 0, stock: 0 };
+  });
+  // فروش‌ها
+  items.filter(i => i.saleInfo).forEach(i => {
+    const k = i.company + " " + i.name;
+    groups[k].sold++;
+    groups[k].revenue += (i.saleInfo.salePrice || 0);
+  });
+  items.filter(i => i.status === STATUS.IN).forEach(i => { const k = i.company + " " + i.name; if (groups[k]) groups[k].stock++; });
+  const arr = Object.entries(groups).sort((a, b) => b[1].sold - a[1].sold || b[1].revenue - a[1].revenue).slice(0, 6);
+  const maxS = Math.max(1, ...arr.map(([, v]) => v.sold));
+  $("topModels").innerHTML = arr.length ? `<table><thead><tr><th>مدل</th><th>تعداد فروش</th><th>درآمد</th><th>موجود</th><th>نمودار</th></tr></thead><tbody>
+    ${arr.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.sold}</td><td>${money(v.revenue)}</td><td>${v.stock}</td>
+      <td><div class="bar"><span style="width:${Math.round(v.sold / maxS * 100)}%"></span></div></td></tr>`).join("")}
+    </tbody></table>` : '<div class="empty">داده‌ای نیست</div>';
+}
+
+function renderSalesChart(items) {
+  const months = [];
+  let [jy, jm] = todayJalali().split("/").map(Number);
+  for (let i = 5; i >= 0; i--) {
+    let m = jm - i, y = jy;
+    while (m < 1) { m += 12; y--; }
+    months.push(`${y}/${String(m).padStart(2, "0")}`);
+  }
+  const counts = months.map(() => 0), revs = months.map(() => 0);
+  items.filter(i => i.saleInfo).forEach(i => {
+    const d = (i.saleInfo.date || "").slice(0, 7);
+    const idx = months.indexOf(d);
+    if (idx >= 0) { counts[idx]++; revs[idx] += (i.saleInfo.salePrice || 0); }
+  });
+  const max = Math.max(1, ...counts);
+  $("salesChart").innerHTML = `<div style="display:flex;gap:8px;align-items:flex-end;height:150px;padding:10px;background:#f8fafd;border-radius:8px;">
+    ${months.map((m, i) => {
+      const h = Math.round(counts[i] / max * 120);
+      return `<div style="flex:1;text-align:center;">
+        <div style="font-size:10px;color:#2a5298;font-weight:700;">${counts[i]}</div>
+        <div style="height:${h}px;background:linear-gradient(180deg,#2a5298,#27ae60);border-radius:6px 6px 0 0;min-height:3px;" title="${money(revs[i])} تومان"></div>
+        <div style="font-size:10px;color:#888;margin-top:4px;">${FA_MONTHS[Number(m.slice(5)) - 1].slice(0, 4)}</div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+/* ==========================================================================
+   ورود کاربری، سطح دسترسی و همگام‌سازی زنده (WebSocket room)
+   ========================================================================== */
+const AUTH_KEY = "moto_warehouse_auth";
+
+/* ---------- ورود / راه‌اندازی ---------- */
+function showLogin() {
+  $("loginScreen").classList.remove("hidden");
+  $("setupBlock").style.display = DB.users.length ? "none" : "block";
+  $("loginSub").textContent = DB.users.length
+    ? "نام کاربری و رمز عبور خود را وارد کنید"
+    : "اولین اجرا: یک حساب مدیر بسازید";
+  const lu = $("login_user"); if (lu) lu.focus();
+}
+function hideLogin() { $("loginScreen").classList.add("hidden"); }
+
+async function doSetupManager() {
+  const u = $("setup_user").value.trim() || "manager";
+  const p = $("setup_pass").value;
+  const p2 = $("setup_pass2").value;
+  const errEl = $("loginErr");
+  if (p.length < 6) { errEl.textContent = "رمز عبور باید حداقل ۶ کاراکتر باشد"; return; }
+  if (p !== p2) { errEl.textContent = "رمز عبور و تکرار آن یکسان نیست"; return; }
+  errEl.textContent = "";
+
+  const phrase = generateRecoveryPhrase(12);
+  const newUser = await createUser(u, p, "manager", MANAGER, { recovery: phrase });
+  await unlockWithPassword(newUser, p);
+  await persistSessionKey();
+  currentUser = { username: u, role: "manager", branch: MANAGER };
+  sessionStorage.setItem(AUTH_KEY, JSON.stringify({ username: u, role: "manager", branch: MANAGER }));
+  save({ users: [u] });
+  // نمایش اجباری عبارت بازیابی
+  showRecoveryPhrase(phrase, () => { startApp(); toast("🛡️ حساب مدیر ساخته شد"); });
+}
+
+/* نمایش عبارت بازیابی با تایید اجباری */
+function showRecoveryPhrase(phrase, onDone) {
+  const words = phrase.split(" ");
+  const html = `
+    <div class="alert red" style="margin-bottom:10px;">⚠️ این عبارت <b>فقط یک بار</b> نمایش داده می‌شود. آن را روی کاغذ بنویسید و در جای امن (گاوصندوق) نگه دارید.</div>
+    <div style="background:#f8fafd;border:2px dashed #2a5298;border-radius:10px;padding:14px;text-align:center;font-size:16px;font-weight:700;line-height:2.2;letter-spacing:.3px;">
+      ${words.map((w, i) => `<span style="display:inline-block;margin:3px 6px;background:#fff;border-radius:6px;padding:3px 10px;">${i + 1}. ${esc(w)}</span>`).join("")}
+    </div>
+    <div style="margin-top:14px;">
+      <button class="btn gray" onclick="copyRecovery('${esc(phrase)}')">📋 کپی</button>
+      <button class="btn gray" onclick="downloadRecovery('${esc(phrase)}')">⬇️ ذخیره فایل</button>
+    </div>
+    <div class="field" style="margin-top:14px;">
+      <label>برای اطمینان، سه کلمه اول عبارت را اینجا بنویسید</label>
+      <input id="rec_check" placeholder="کلمه۱ کلمه۲ کلمه۳">
+    </div>
+    <div id="rec_err" class="login-err"></div>`;
+  openModal("🔑 عبارت بازیابی شما", html, () => {
+    const got = normalizePhrase($("rec_check").value);
+    const want = words.slice(0, 3).join(" ");
+    if (got !== want) { $("rec_err").textContent = "کلمات مطابق نیست. دوباره بنویسید."; return; }
+    closeModal(); if (onDone) onDone();
+  }, "تایید و ورود");
+}
+function copyRecovery(phrase) {
+  navigator.clipboard?.writeText(phrase).then(() => toast("📋 کپی شد")).catch(() => toast("کپی نشد — دستی یادداشت کنید", false));
+}
+function downloadRecovery(phrase) {
+  const txt = `عبارت بازیابی انبارداری چندشعبه‌ای\nتاریخ: ${todayJalali()}\n\n${phrase}\n\nاین عبارت را در جای امن نگه دارید. با آن می‌توانید در صورت فراموشی رمز، دسترسی و داده‌های رمزنگاری‌شده را بازیابید.`;
+  const blob = new Blob(["\uFEFF" + txt], { type: "text/plain;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `moto-recovery-${todayJalali().replace(/\//g, "-")}.txt`;
+  a.click();
+  toast("⬇️ ذخیره شد");
+}
+
+async function doLogin() {
+  const u = $("login_user").value.trim();
+  const p = $("login_pass").value;
+  const errEl = $("loginErr");
+  if (!u || !p) { errEl.textContent = "نام کاربری و رمز عبور را وارد کنید"; return; }
+  const user = await verifyUser(u, p);
+  if (!user) { errEl.textContent = "نام کاربری یا رمز عبور اشتباه است"; return; }
+  errEl.textContent = "";
+  // باز کردن کلید داده
+  if (user.wrappedKeyPass) {
+    try { await unlockWithPassword(user, p); await persistSessionKey(); }
+    catch (e) { errEl.textContent = "خطا در باز کردن کلید داده"; return; }
+  }
+  currentUser = { username: user.username, role: user.role, branch: user.branch };
+  sessionStorage.setItem(AUTH_KEY, JSON.stringify(currentUser));
+  startApp();
+  toast(`👋 خوش آمدید ${user.username}`);
+}
+
+/* ---------- فراموشی رمز ---------- */
+function openForgotPassword() {
+  const mgr = DB.users.find(x => x.role === "manager");
+  const html = `
+    <p class="helper">با عبارت بازیابی ۱۲ کلمه‌ای، رمز جدید تعیین کنید و به داده‌ها دسترسی پیدا کنید.</p>
+    <div class="field"><label>نام کاربری مدیر</label><input id="fp_user" value="${esc(mgr ? mgr.username : "manager")}"></div>
+    <div class="field" style="margin-top:8px;"><label>عبارت بازیابی (۱۲ کلمه)</label><textarea id="fp_phrase" rows="3" placeholder="کوه دریا خورشید ..."></textarea></div>
+    <div class="field" style="margin-top:8px;"><label>رمز عبور جدید (حداقل ۶ کاراکتر)</label><input id="fp_pass" type="password"></div>
+    <div class="field" style="margin-top:8px;"><label>تکرار رمز جدید</label><input id="fp_pass2" type="password"></div>
+    <div id="fp_err" class="login-err"></div>`;
+  openModal("🔑 بازیابی حساب", html, async () => {
+    const err = $("fp_err");
+    const uname = $("fp_user").value.trim();
+    const phrase = normalizePhrase($("fp_phrase").value);
+    const np = $("fp_pass").value, np2 = $("fp_pass2").value;
+    const u = DB.users.find(x => x.username === uname);
+    if (!u) { err.textContent = "کاربر یافت نشد"; return; }
+    if (!u.wrappedKeyRecovery) { err.textContent = "برای این کاربر عبارت بازیابی ثبت نشده"; return; }
+    if (np.length < 6) { err.textContent = "رمز جدید حداقل ۶ کاراکتر"; return; }
+    if (np !== np2) { err.textContent = "تکرار رمز یکسان نیست"; return; }
+    try {
+      await unlockWithRecovery(uname, phrase);
+    } catch (e) { err.textContent = "عبارت بازیابی نادرست است"; return; }
+    await rewrapForNewPassword(u, np);
+    save({ users: [u.username] });
+    closeModal();
+    toast("✅ رمز تغییر کرد و دسترسی باز شد");
+    $("login_user").value = uname;
+    $("login_pass").value = np;
+  }, "تغییر رمز و ورود");
+}
+
+/* کلید داده در نشست مرورگر نگه داشته می‌شود تا با رفرش، داده‌ها قابل خواندن بمانند.
+   با بستن تب پاک می‌شود (هم‌سطح امنیتی قبل). */
+const DKEY_KEY = "moto_warehouse_dkey";
+async function persistSessionKey() {
+  try {
+    const raw = await exportSessionKey();
+    sessionStorage.setItem(DKEY_KEY, bytesToB64(raw));
+  } catch (e) {}
+}
+async function restoreSessionKey() {
+  try {
+    const b = sessionStorage.getItem(DKEY_KEY);
+    if (!b) return false;
+    sessionKey = await aeadKey(b64ToBytes(b));
+    return true;
+  } catch (e) { return false; }
+}
+
+function logout() {
+  sessionStorage.removeItem(AUTH_KEY);
+  sessionStorage.removeItem(DKEY_KEY);
+  currentUser = null; sessionKey = null;
+  disconnectSync();
+  showLogin();
+  toast("از حساب خارج شدید");
+}
+
+function openAccountMenu() {
+  if (!currentUser) return;
+  const isMgr = currentUser.role === "manager";
+  const html = `
+    <div class="info-grid">
+      <div><b>کاربر:</b> ${esc(currentUser.username)}</div>
+      <div><b>نقش:</b> ${isMgr ? "مدیر (همه شعب)" : "کارمند شعبه"}</div>
+      <div><b>شعبه:</b> ${esc(isMgr ? "همه شعب" : currentUser.branch)}</div>
+    </div>
+    ${isMgr ? `<h4 style="color:#2a5298;margin:14px 0 6px;">👥 مدیریت کاربران</h4>
+    <div id="userList"></div>
+    <h4 style="color:#2a5298;margin:14px 0 6px;">➕ افزودن کارمند</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="field"><label>نام کاربری</label><input id="nu_user"></div>
+      <div class="field"><label>رمز عبور</label><input id="nu_pass" type="password"></div>
+      <div class="field" style="grid-column:1/-1;"><label>شعبه</label><select id="nu_branch">${branches().map(b => `<option>${esc(b)}</option>`).join("")}</select></div>
+    </div>
+    <button class="btn success" onclick="addStaff()">افزودن</button>
+    <hr style="margin:16px 0;border:none;border-top:1px dashed #ccd;">
+    <button class="btn warn" onclick="changePassword()">🔑 تغییر رمز مدیر/من</button>
+    <div class="helper" style="margin-top:8px;">🔑 عبارت بازیابی هنگام ساخت حساب یک بار نمایش داده شده است. اگر آن را ندارید، همین حالا یک عبارت جدید بسازید و ذخیره کنید.</div>
+    <button class="btn gray" onclick="regenRecovery()">♻️ ساخت عبارت بازیابی جدید</button>` : ""}
+    <div style="margin-top:16px;text-align:left;">
+      <button class="btn danger" onclick="logout(); closeModal()">🚪 خروج از حساب</button>
+    </div>`;
+  openModal("👤 حساب کاربری", html, null, "بستن", () => { if (currentUser && currentUser.role === "manager") renderUserList(); });
+}
+function renderUserList() {
+  const el = $("userList"); if (!el) return;
+  el.innerHTML = DB.users.map(u => `<div class="list-row"><span>${u.role === "manager" ? "👔" : "🧑"} <b>${esc(u.username)}</b> — ${u.role === "manager" ? "مدیر" : esc(u.branch)}</span>
+    ${u.role === "manager" ? "" : `<button class="btn small danger" onclick="removeUser('${esc(u.username)}')">حذف</button>`}</div>`).join("");
+}
+async function addStaff() {
+  const u = $("nu_user").value.trim();
+  const p = $("nu_pass").value;
+  if (!u || p.length < 6) { toast("نام کاربری و رمز (حداقل ۶ کاراکتر) لازم است", false); return; }
+  if (DB.users.some(x => x.username === u)) { toast("این نام کاربری موجود است", false); return; }
+  const staff = await createUser(u, p, "staff", $("nu_branch").value);
+  // کارمند هم باید بتواند داده حساس را بخواند → کلید داده با رمز او بسته‌بندی می‌شود
+  try {
+    const raw = await exportSessionKey();
+    staff.wrappedKeyPass = await wrapDataKey(raw, p);
+  } catch (e) {}
+  save({ users: [u] }); renderUserList(); toast("✅ کارمند اضافه شد");
+  $("nu_user").value = ""; $("nu_pass").value = "";
+}
+function removeUser(username) {
+  openModal("حذف کاربر", `کاربر <b>${esc(username)}</b> حذف شود؟`, () => {
+    DB.users = DB.users.filter(u => u.username !== username);
+    if (typeof markDeletedUser === "function") markDeletedUser(username);
+    save(); closeModal(); renderUserList(); toast("🗑️ حذف شد");
+  }, "حذف");
+}
+async function changePassword() {
+  const oldp = prompt("رمز فعلی را وارد کنید:");
+  if (!oldp) return;
+  const me = await verifyUser(currentUser.username, oldp);
+  if (!me) { toast("رمز فعلی اشتباه است", false); return; }
+  const np = prompt("رمز جدید (حداقل ۶ کاراکتر):");
+  if (!np || np.length < 6) { toast("رمز جدید نامعتبر", false); return; }
+  try {
+    if (me.wrappedKeyPass) {
+      await unlockWithPassword(me, oldp);                     // باز کردن کلید داده
+      await rewrapForNewPassword(me, np);                     // بسته‌بندی مجدد با رمز جدید
+    } else {
+      // کاربر قدیمی: هش salt-دار بساز
+      const salt = bytesToB64(randBytes(16));
+      me.salt = salt;
+      me.passHash = bytesToB64(await pbkdf2(np, b64ToBytes(salt), "auth"));
+    }
+    await persistSessionKey();
+    save({ users: [me.username] }); toast("✅ رمز تغییر کرد");
+  } catch (e) { toast("تغییر رمز ممکن نشد", false); }
+}
+/* ساخت عبارت بازیابی جدید برای مدیر واردشده */
+async function regenRecovery() {
+  if (!canManage()) return;
+  const me = DB.users.find(x => x.username === currentUser.username);
+  if (!me) return;
+  const phrase = generateRecoveryPhrase(12);
+  try {
+    const raw = await exportSessionKey();
+    me.wrappedKeyRecovery = await wrapDataKey(raw, normalizePhrase(phrase));
+    me.recoveryHint = phrase.split(" ").slice(0, 2).join(" ") + " ...";
+    save({ users: [me.username] });
+    closeModal();
+    showRecoveryPhrase(phrase, () => toast("♻️ عبارت بازیابی جدید ثبت شد"));
+  } catch (e) { toast("کلید داده در دسترس نیست — دوباره وارد شوید", false); }
+}
+
+/* ---------- سطح دسترسی ---------- */
+function canManage() { return currentUser && currentUser.role === "manager"; }
+function canEditBranch(b) {
+  if (canManage()) return true;
+  return currentUser && currentUser.branch === b;
+}
+function applyPermissions() {
+  const mgr = canManage();
+  // کارمند: تب گزارش و تنظیمات و پشتیبان مخفی
+  const reportBtn = document.querySelector('#mainNav button[data-tab="report"]');
+  const setBtn = document.querySelector('#mainNav button[data-tab="settings"]');
+  const backupBtn = document.querySelector('#mainNav button[data-tab="backup"]');
+  [reportBtn, setBtn, backupBtn].forEach(b => { if (b) b.style.display = mgr ? "" : "none"; });
+  const logBtn = document.querySelector('#mainNav button[data-tab="log"]');
+  if (logBtn) logBtn.style.display = "";
+  // کارمند فقط شعبه خودش
+  if (!mgr && currentUser) {
+    activeBranch = currentUser.branch;
+    if (!$("branchTabs").dataset.locked) {
+      $("branchTabs").dataset.locked = "1";
+    }
+  }
+  const ub = $("userBadge");
+  if (ub) ub.textContent = currentUser ? `${mgr ? "👔" : "🧑"} ${currentUser.username}${mgr ? " (مدیر)" : " — " + currentUser.branch}` : "مهمان";
+}
+
+/* ---------- همگام‌سازی زنده ---------- */
+let syncWS = null, syncRoom = null, syncConnected = false, syncApplying = false;
+
+function setSyncBadge(state, text) {
+  const el = $("syncBadge"); if (!el) return;
+  el.className = "stats " + (state === "on" ? "online" : state === "off" ? "offline" : "");
+  el.textContent = text;
+}
+function startSync(room) {
+  if (!room || !window.WebSocket) { setSyncBadge("off", "⚪ تک‌دستگاه"); return; }
+  try {
+    syncRoom = room;
+    const url = `wss://${location.host}/ws/${room}`;
+    syncWS = new WebSocket(url);
+    syncWS.onopen = () => {
+      syncConnected = true;
+      setSyncBadge("on", "🟢 متصل (همگام)");
+    };
+    syncWS.onmessage = ev => {
+      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.type === "welcome" && m.state && m.state.db) {
+        // داده مشترک اتاق را اگر جدیدتر است اعمال کن
+        if (!DB.settings.lastSaved || (m.state.db.settings.lastSaved || "") > DB.settings.lastSaved) {
+          syncApplying = true;
+          DB = m.state.db;
+          localStorage.setItem(LS_KEY, JSON.stringify(DB));
+          renderBranchTabs(); renderDashboard();
+          const t = document.querySelector("#mainNav button.active");
+          if (t) refreshTab(t.dataset.tab);
+          syncApplying = false;
+        }
+      }
+      if (m.type === "msg" && m.data && m.data.kind === "db") {
+        if (!DB.settings.lastSaved || (m.data.db.settings.lastSaved || "") > DB.settings.lastSaved) {
+          syncApplying = true;
+          DB = m.data.db;
+          localStorage.setItem(LS_KEY, JSON.stringify(DB));
+          renderBranchTabs(); renderDashboard();
+          const t = document.querySelector("#mainNav button.active");
+          if (t) refreshTab(t.dataset.tab);
+          syncApplying = false;
+          toast("🔄 داده از کاربر دیگر به‌روز شد");
+        }
+      }
+      if (m.type === "join") { /* peer joined */ }
+    };
+    syncWS.onclose = () => { syncConnected = false; setSyncBadge("off", "🔴 قطع شد"); setTimeout(() => { if (syncRoom) startSync(syncRoom); }, 4000); };
+    syncWS.onerror = () => setSyncBadge("off", "🔴 خطای اتصال");
+  } catch (e) { setSyncBadge("off", "⚪ تک‌دستگاه"); }
+}
+function disconnectSync() {
+  syncRoom = null;
+  if (syncWS) { try { syncWS.close(); } catch (e) {} syncWS = null; }
+  setSyncBadge("off", "⚪ آفلاین");
+}
+function broadcastDB() {
+  if (!syncConnected || syncApplying) return;
+  try { syncWS.send(JSON.stringify({ type: "msg", data: { kind: "db", db: DB } })); } catch (e) {}
+}
+
+/* ---------- شروع برنامه ---------- */
+function startApp() {
+  hideLogin();
+  renderBranchTabs();
+  applyPermissions();
+  renderDashboard();
+  const activeTab = document.querySelector("#mainNav button.active");
+  if (activeTab) refreshTab(activeTab.dataset.tab);
+  // همگام‌سازی از سرور (جایگزین WebSocket)
+  if (typeof startServerSync === "function") startServerSync();
+  save();
+}
+async function bootAuth() {
+  // ابتدا اتصال به سرور و بارگذاری داده‌ها
+  if (typeof supaInit === "function") {
+    const ok = await supaInit();
+    if (!ok) toast("⚠️ اتصال به سرور ممکن نشد — حالت آفلاین", false);
+  }
+  const saved = sessionStorage.getItem(AUTH_KEY);
+  if (saved) {
+    try { currentUser = JSON.parse(saved); } catch (e) { currentUser = null; }
+  }
+  // اگر کاربر ذخیره شده و کلید داده در همین نشست موجود است، بدون ورود مجدد ادامه بده
+  if (currentUser && await restoreSessionKey()) { startApp(); return; }
+  if (currentUser && !sessionStorage.getItem(DKEY_KEY)) {
+    // نشست تازه بدون کلید داده → باید دوباره رمز بزند
+    currentUser = null;
+    sessionStorage.removeItem(AUTH_KEY);
+  }
+  showLogin();
+}
+/* ==========================================================================
+   لایه اتصال به سرور Supabase (REST) — جایگزین حافظه مرورگر و WebSocket
+   داده در جدول‌های items / settings / app_users / activity ذخیره می‌شود.
+   ========================================================================== */
+const SUPA_URL = "https://kycyolmcbzcsgmokjgus.supabase.co";
+const SUPA_KEY = "sb_publishable_ofeoDQ2Hxm1cBRSlRE0CfA_Jgy0d2nT";
+const SUPA_ON = true;              // اگر false شد، برنامه آفلاین کار می‌کند
+const SUPA_HEADERS = {
+  "apikey": SUPA_KEY,
+  "Authorization": "Bearer " + SUPA_KEY,
+  "Content-Type": "application/json"
+};
+let supaOnline = false;
+let _supaPullTimer = null;
+let _supaPushTimer = null;
+
+async function supaFetch(path, opts = {}) {
+  const res = await fetch(SUPA_URL + "/rest/v1/" + path, Object.assign({ headers: SUPA_HEADERS }, opts));
+  if (!res.ok) {
+    let t = ""; try { t = await res.text(); } catch (e) {}
+    throw new Error(`Supabase ${res.status}: ${t.slice(0, 200)}`);
+  }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+function setServerBadge(state, text) {
+  const el = $("syncBadge"); if (!el) return;
+  el.className = "stats " + (state === "on" ? "online" : state === "off" ? "offline" : "");
+  el.textContent = text;
+}
+
+/* ---------- نگاشت ردیف ↔ آیتم ---------- */
+function itemToRow(it) {
+  return {
+    id: it.id,
+    barname: it.barname || null,
+    branch: it.branch,
+    date: it.dateIn || it.date || null,
+    supplier: it.supplier || null,
+    receiver: it.receiver || null,
+    company: it.company || null,
+    name: it.name || null,
+    chassis: it.chassis || null,
+    engine: it.engine || null,
+    plate: it.plate || null,
+    qty: it.qty || 1,
+    price: it.price || 0,
+    status: it.status || null,
+    sale: it.saleInfo || null,
+    exit_info: it.exitInfo || null,
+    transfers: it.transfers || null,
+    created_by: it.createdBy || null,
+    updated_at: new Date().toISOString()
+  };
+}
+function rowToItem(r) {
+  return {
+    id: r.id, branch: r.branch, barname: r.barname,
+    dateIn: r.date, supplier: r.supplier, receiver: r.receiver,
+    company: r.company, name: r.name, chassis: r.chassis,
+    engine: r.engine, plate: r.plate, qty: r.qty, price: r.price,
+    status: r.status, saleInfo: r.sale, exitInfo: r.exit_info,
+    createdBy: r.created_by, updatedAt: r.updated_at,
+    // فیلدهای غنی که در DB محلی هستند از localStorage تکمیل می‌شوند
+    volume: "", type: "", color: "", year: "", payStatus: "", prepay: 0,
+    specs: "", note: "", supplierPhone: ""
+  };
+}
+
+/* ---------- بارگذاری اولیه از سرور ---------- */
+async function supaLoadAll() {
+  // تنظیمات
+  const s = await supaFetch("settings?select=*&id=eq.main");
+  if (s && s[0] && s[0].data && Object.keys(s[0].data).length) {
+    DB.settings = Object.assign({}, DEFAULT_SETTINGS, s[0].data);
+  }
+  // کاربران
+  const us = await supaFetch("app_users?select=*");
+  if (us) {
+    DB.users = us.map(u => ({
+      username: u.username, salt: u.salt, passHash: u.pass_hash,
+      role: u.role, branch: u.branch,
+      wrappedKeyPass: u.wrapped_key_pass,
+      wrappedKeyRecovery: u.wrapped_key_recovery,
+      recoveryHint: u.recovery_hint, createdAt: u.created_at
+    }));
+  }
+  // آیتم‌ها
+  const items = await supaFetch("items?select=*&order=updated_at.asc");
+  if (items) DB.items = items.map(rowToItem);
+  // لاگ (آخرین ۲۰۰)
+  const acts = await supaFetch("activity?select=*&order=ts.desc&limit=200");
+  if (acts) DB.activity = acts.map(a => ({ id: a.id, at: a.ts, date: a.date || "", branch: a.branch, action: a.action, detail: a.detail }));
+  supaOnline = true;
+  setServerBadge("on", "🟢 متصل (سرور)");
+}
+
+/* ---------- نوشتن روی سرور ---------- */
+async function supaPushSettings() {
+  DB.settings.activeBranch = activeBranch;
+  await supaFetch("settings?on_conflict=id", {
+    method: "POST",
+    headers: Object.assign({}, SUPA_HEADERS, { "Prefer": "resolution=merge-duplicates" }),
+    body: JSON.stringify([{ id: "main", data: DB.settings, updated_at: new Date().toISOString() }])
+  });
+}
+async function supaUpsertItems(items) {
+  if (!items.length) return;
+  await supaFetch("items?on_conflict=id", {
+    method: "POST",
+    headers: Object.assign({}, SUPA_HEADERS, { "Prefer": "resolution=merge-duplicates" }),
+    body: JSON.stringify(items.map(itemToRow))
+  });
+}
+async function supaUpsertUsers(users) {
+  if (!users.length) return;
+  await supaFetch("app_users?on_conflict=username", {
+    method: "POST",
+    headers: Object.assign({}, SUPA_HEADERS, { "Prefer": "resolution=merge-duplicates" }),
+    body: JSON.stringify(users.map(u => ({
+      username: u.username, salt: u.salt, pass_hash: u.passHash,
+      role: u.role, branch: u.branch,
+      wrapped_key_pass: u.wrappedKeyPass || null,
+      wrapped_key_recovery: u.wrappedKeyRecovery || null,
+      recovery_hint: u.recoveryHint || null
+    })))
+  });
+}
+async function supaPushActivity(rows) {
+  if (!rows.length) return;
+  await supaFetch("activity", {
+    method: "POST",
+    body: JSON.stringify(rows.map(a => ({
+      user_name: currentUser ? currentUser.username : null,
+      action: a.action, detail: a.detail, branch: a.branch
+    })))
+  });
+}
+async function supaDeleteItem(id) {
+  await supaFetch("items?id=eq." + encodeURIComponent(id), { method: "DELETE" });
+}
+async function supaDeleteUser(username) {
+  await supaFetch("app_users?username=eq." + encodeURIComponent(username), { method: "DELETE" });
+}
+
+/* ---------- صف ارسال (debounce) ---------- */
+const _dirtyItems = new Set();
+const _dirtyUsers = new Set();
+let _dirtySettings = false;
+const _pendingActivity = [];
+
+function markItemDirty(id) { _dirtyItems.add(id); scheduleSupaPush(); }
+function markUserDirty(username, isNew) {
+  _dirtyUsers.add(username);
+  if (isNew) _newUsers.add(username);
+  scheduleSupaPush();
+}
+const _newUsers = new Set();
+function markSettingsDirty() { _dirtySettings = true; scheduleSupaPush(); }
+function markDeletedItem(id) { _deletedItems.add(id); scheduleSupaPush(); }
+function markDeletedUser(username) { _deletedUsers.add(username); scheduleSupaPush(); }
+const _deletedItems = new Set();
+const _deletedUsers = new Set();
+
+function scheduleSupaPush() {
+  if (!SUPA_ON || !supaOnline) return;
+  clearTimeout(_supaPushTimer);
+  _supaPushTimer = setTimeout(supaFlush, 400);
+}
+async function supaFlush() {
+  if (!SUPA_ON || !supaOnline) return;
+  try {
+    const itemRows = DB.items.filter(i => _dirtyItems.has(i.id));
+    _dirtyItems.clear();
+    await supaUpsertItems(itemRows);
+
+    for (const id of _deletedItems) { await supaDeleteItem(id); }
+    _deletedItems.clear();
+
+    const userRows = DB.users.filter(u => _dirtyUsers.has(u.username));
+    const newSet = new Set(_newUsers); _newUsers.clear();
+    _dirtyUsers.clear();
+    await supaUpsertUsers(userRows);
+    for (const un of _deletedUsers) { await supaDeleteUser(un); }
+    _deletedUsers.clear();
+
+    if (_dirtySettings) { _dirtySettings = false; await supaPushSettings(); }
+
+    if (_pendingActivity.length) { const a = _pendingActivity.splice(0); await supaPushActivity(a); }
+  } catch (e) {
+    console.warn("supaFlush", e);
+    setServerBadge("off", "🔴 خطای ذخیره");
+  }
+}
+
+/* ---------- کشیدن تغییرات دیگران (polling) ---------- */
+async function supaPullChanges() {
+  if (!SUPA_ON || !supaOnline) return;
+  try {
+    const items = await supaFetch("items?select=*&order=updated_at.desc&limit=500");
+    if (!items) return;
+    const serverById = new Map(items.map(r => [r.id, r]));
+    let changed = false;
+    // آیتم‌های جدید/به‌روزشده
+    for (const r of items) {
+      const local = DB.items.find(i => i.id === r.id);
+      if (!local) { DB.items.push(rowToItem(r)); changed = true; }
+      else if ((r.updated_at || "") > (local.updatedAt || "")) {
+        Object.assign(local, rowToItem(r));
+        changed = true;
+      }
+    }
+    // حذف‌شده‌ها
+    const serverIds = new Set(items.map(r => r.id));
+    const before = DB.items.length;
+    DB.items = DB.items.filter(i => serverIds.has(i.id));
+    if (DB.items.length !== before) changed = true;
+
+    if (changed) {
+      localStorage.setItem(LS_KEY, JSON.stringify(DB));
+      renderBranchTabs(); renderDashboard();
+      const t = document.querySelector("#mainNav button.active");
+      if (t) refreshTab(t.dataset.tab);
+    }
+  } catch (e) { console.warn("supaPull", e); }
+}
+function startServerSync() {
+  if (!SUPA_ON) { setServerBadge("off", "⚪ آفلاین"); return; }
+  clearInterval(_supaPullTimer);
+  _supaPullTimer = setInterval(supaPullChanges, 5000);
+}
+
+/* ---------- اتصال ---------- */
+async function supaInit() {
+  if (!SUPA_ON) return false;
+  try {
+    await supaLoadAll();
+    return true;
+  } catch (e) {
+    console.warn("supaInit", e);
+    supaOnline = false;
+    setServerBadge("off", "🔴 بدون سرور (آفلاین)");
+    return false;
+  }
+}
+/* ==========================================================================
+   گزارش شعب (فقط مدیر)
+   ========================================================================== */
+function renderReport() {
+  if (!isManager()) {
+    $("reportBody").innerHTML = '<div class="empty">برای مشاهده گزارش تجمیعی، شعبه «مدیر مرکزی» را انتخاب کنید.</div>';
+    return;
+  }
+  const total = DB.items.length;
+  const inStock = DB.items.filter(i => i.status === STATUS.IN).length;
+  const saleCount = DB.items.filter(i => i.status === STATUS.SALE).length;
+  const outCount = DB.items.filter(i => i.status === STATUS.OUT).length;
+  const totalSales = DB.items.filter(i => i.saleInfo).reduce((s, i) => s + (i.saleInfo.salePrice || 0) - (i.saleInfo.discount || 0), 0);
+  const totalBuys = DB.items.reduce((s, i) => s + (i.price || 0), 0);
+  const cogs = DB.items.filter(i => i.saleInfo).reduce((s, i) => s + (i.price || 0), 0);
+
+  $("reportBody").innerHTML = `
+    <div class="stat-cards">
+      <div class="stat-card"><div class="num">${total}</div><div class="lbl">🏍️ کل موتورها</div></div>
+      <div class="stat-card green"><div class="num">${inStock}</div><div class="lbl">📦 موجود کل</div></div>
+      <div class="stat-card orange"><div class="num">${saleCount}</div><div class="lbl">💰 فروش</div></div>
+      <div class="stat-card red"><div class="num">${outCount}</div><div class="lbl">📤 خروج</div></div>
+      <div class="stat-card purple"><div class="num">${money(totalBuys)}</div><div class="lbl">🛒 کل خرید</div></div>
+    </div>
+    <h3>💰 خلاصه مالی</h3>
+    <div class="kpi-mini">
+      <div><b>${money(totalBuys)}</b>کل خرید موتور</div>
+      <div><b>${money(totalSales)}</b>کل فروش</div>
+      <div><b>${money(cogs)}</b>بهای موتورهای فروش‌رفته</div>
+    </div>
+    <h3>📊 مقایسه شعب</h3>
+    <div style="overflow-x:auto;"><table>
+    <thead><tr><th>شعبه</th><th>کل موتور</th><th>موجود</th><th>فروش</th><th>خروج</th>
+      <th>مجموع خرید</th><th>مجموع فروش</th><th>عملیات</th></tr></thead><tbody>` +
+    branches().map(b => {
+      const items = DB.items.filter(i => i.branch === b);
+      const inS = items.filter(i => i.status === STATUS.IN).length;
+      const sa = items.filter(i => i.status === STATUS.SALE).length;
+      const ou = items.filter(i => i.status === STATUS.OUT).length;
+      const buys = items.reduce((s, i) => s + (i.price || 0), 0);
+      const soldItems = items.filter(i => i.saleInfo);
+      const sales = soldItems.reduce((s, i) => s + (i.saleInfo.salePrice || 0) - (i.saleInfo.discount || 0), 0);
+      return `<tr>
+        <td><b>${esc(b)}</b></td><td>${items.length}</td><td>${inS}</td><td>${sa}</td><td>${ou}</td>
+        <td>${money(buys)}</td><td>${money(sales)}</td>
+        <td><button class="btn small" onclick="selectBranch('${esc(b)}'); document.querySelector('#mainNav button[data-tab=inv]').click();">مشاهده</button></td>
+      </tr>`;
+    }).join("") + `</tbody></table></div>
+    <div class="actions"><button class="btn purple" onclick="exportReportCSV()">⬇️ CSV گزارش</button>
+    <button class="btn gray" onclick="printSection()">🖨️ چاپ گزارش</button></div>`;
+}
+function exportReportCSV() {
+  const rows = [["شعبه", "کل موتور", "موجود", "فروش", "خروج", "مجموع خرید", "مجموع فروش"]];
+  branches().forEach(b => {
+    const items = DB.items.filter(i => i.branch === b);
+    const sold = items.filter(i => i.saleInfo);
+    const sales = sold.reduce((s, i) => s + (i.saleInfo.salePrice || 0) - (i.saleInfo.discount || 0), 0);
+    rows.push([b, items.length, items.filter(i => i.status === STATUS.IN).length, items.filter(i => i.status === STATUS.SALE).length,
+      items.filter(i => i.status === STATUS.OUT).length, items.reduce((s, i) => s + (i.price || 0), 0), sales]);
+  });
+  downloadCSV(`branch-report-${todayJalali().replace(/\//g, "-")}.csv`, rows);
+  toast("✅ دانلود شد");
+}
+
+/* ==========================================================================
+   لاگ فعالیت
+   ========================================================================== */
+function renderLog() {
+  const q = ($("log_q") ? $("log_q").value : "").trim().toLowerCase();
+  let list = DB.activity.filter(a => {
+    if (!isManager() && a.branch !== activeBranch) return false;
+    if (q && !(`${a.action} ${a.detail}`.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  if (!list.length) { $("logTable").innerHTML = '<div class="empty">فعالیتی ثبت نشده</div>'; return; }
+  $("logTable").innerHTML = `<div style="overflow-x:auto;"><table>
+    <thead><tr><th>تاریخ</th><th>ساعت</th><th>شعبه</th><th>عملیات</th><th>جزئیات</th></tr></thead><tbody>` +
+    list.slice(0, 300).map(a => `<tr>
+      <td>${esc(a.date)}</td><td style="direction:ltr;">${new Date(a.at).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}</td>
+      <td>${esc(a.branch === MANAGER ? "مدیر" : a.branch)}</td><td><b>${esc(a.action)}</b></td><td>${esc(a.detail)}</td></tr>`).join("") +
+    "</tbody></table></div>";
+}
+function exportLogCSV() {
+  const rows = [["تاریخ", "ساعت", "شعبه", "عملیات", "جزئیات"]];
+  DB.activity.forEach(a => rows.push([a.date, new Date(a.at).toLocaleString("fa-IR"), a.branch, a.action, a.detail]));
+  downloadCSV(`activity-log-${todayJalali().replace(/\//g, "-")}.csv`, rows);
+  toast("✅ دانلود شد");
+}
+function clearLog() {
+  openModal("پاک کردن لاگ", "تمام تاریخچه فعالیت‌ها پاک شود؟ (داده‌های موتورها حفظ می‌شود)", () => {
+    DB.activity = []; save(); closeModal(); toast("🗑️ لاگ پاک شد"); renderLog();
+  }, "پاک کن");
+}
+
+/* ==========================================================================
+   تنظیمات
+   ========================================================================== */
+function renderSettings() {
+  if (!canManage()) { $("brManage").innerHTML = ""; return; }
+  $("set_company").value = DB.settings.companyName || "";
+  $("set_lowStock").value = DB.settings.lowStock || 3;
+  $("set_branches").value = branches().join(", ");
+  $("brManage").innerHTML = branches().map(b => {
+    const used = DB.items.some(i => i.branch === b);
+    return `<div class="list-row"><span>🏢 <b>${esc(b)}</b></span>
+      <span>${DB.items.filter(i => i.branch === b).length} موتور${used ? "" : " — بدون داده"}
+      <button class="btn small success" onclick="renameBranch('${esc(b)}')">✏️ نام</button>
+      <button class="btn small danger" onclick="removeBranch('${esc(b)}')" ${used ? "disabled title='شعبه دارای داده است'" : ""}>🗑️</button></span></div>`;
+  }).join("");
+}
+function saveSettings() {
+  const name = $("set_company").value.trim();
+  const low = Math.max(0, +$("set_lowStock").value || 3);
+  const bs = $("set_branches").value.split(",").map(s => s.trim()).filter(Boolean);
+  if (!bs.length) { toast("حداقل یک شعبه لازم است", false); return; }
+  DB.settings.companyName = name; DB.settings.lowStock = low; DB.settings.branches = [...new Set(bs)];
+  if (!DB.settings.branches.includes(activeBranch)) activeBranch = DB.settings.branches[0];
+  save(); renderBranchTabs(); renderSettings(); toast("✅ تنظیمات ذخیره شد");
+}
+function renameBranch(old) {
+  openModal("تغییر نام شعبه", `<div class="field"><label>نام جدید</label><input id="rb_name" value="${esc(old)}"></div>`, () => {
+    const nn = $("rb_name").value.trim();
+    if (!nn) return;
+    const idx = DB.settings.branches.indexOf(old);
+    if (idx >= 0) DB.settings.branches[idx] = nn;
+    DB.items.forEach(i => { if (i.branch === old) i.branch = nn; });
+    if (activeBranch === old) activeBranch = nn;
+    save(); closeModal(); renderBranchTabs(); renderSettings(); toast("✅ نام شعبه تغییر کرد");
+  }, "ذخیره", () => { const i = $("rb_name"); if (i) i.focus(); });
+}
+function removeBranch(b) {
+  const used = DB.items.some(i => i.branch === b);
+  if (used) { toast("این شعبه دارای داده است", false); return; }
+  openModal("حذف شعبه", `شعبه <b>${esc(b)}</b> حذف شود؟`, () => {
+    DB.settings.branches = DB.settings.branches.filter(x => x !== b);
+    if (activeBranch === b) activeBranch = DB.settings.branches[0];
+    save(); closeModal(); renderBranchTabs(); renderSettings(); toast("🗑️ حذف شد");
+  }, "حذف");
+}
+
+/* ==========================================================================
+   پشتیبان
+   ========================================================================== */
+function exportData() {
+  if (!canManage()) { toast("فقط مدیر می‌تواند پشتیبان کامل بگیرد", false); return; }
+  downloadJSON(`moto-backup-${todayJalali().replace(/\//g, "-")}.json`, DB);
+  logActivity("پشتیبان‌گیری", "دانلود فایل پشتیبان");
+  save(); toast("✅ فایل پشتیبان دانلود شد");
+}
+function exportAllCSV() {
+  if (!canManage()) { toast("فقط مدیر", false); return; }
+  const zip = [];
+  zip.push("=== موتورها ===");
+  zip.push(toCSV([["شعبه", "شرکت", "نام", "شاسی", "پلاک", "قیمت خرید", "قیمت فروش", "وضعیت", "تاریخ ورود", "خریدار"],
+    ...DB.items.map(i => [i.branch, i.company, i.name, i.chassis, i.plate, i.price, (i.saleInfo && i.saleInfo.salePrice) || "", i.status, i.dateIn, (i.saleInfo && i.saleInfo.buyer) || ""])]));
+  zip.push("\n=== تاریخچه ===");
+  zip.push(toCSV([["تاریخ", "شعبه", "از", "به", "توضیح"],
+    ...DB.history.map(h => [h.date, h.branch, h.fromStatus || "", h.toStatus || "", h.note])]));
+  const blob = new Blob(["\uFEFF" + zip.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `moto-alldata-${todayJalali().replace(/\//g, "-")}.csv`;
+  a.click();
+  toast("✅ دانلود شد");
+}
+function importData(ev) {
+  if (!canManage()) { toast("فقط مدیر", false); ev.target.value = ""; return; }
+  const f = ev.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      if (!d.items || !d.history) throw new Error("bad");
+      openModal("بازگردانی", `فایل شامل <b>${d.items.length}</b> موتور است. داده‌های فعلی جایگزین می‌شوند. ادامه؟`, () => {
+        DB = { items: d.items || [], history: d.history || [], activity: d.activity || [], settings: Object.assign({}, DEFAULT_SETTINGS, d.settings || {}) };
+        save(); closeModal(); toast("✅ بازگردانی شد"); setTimeout(() => location.reload(), 700);
+      }, "بازگردانی");
+    } catch (err) { toast("❌ فایل نامعتبر است", false); }
+    ev.target.value = "";
+  };
+  r.readAsText(f);
+}
+function resetAll() {
+  openModal("⚠️ پاک کردن همه داده‌ها", "همه موتورها و تاریخچه <b>برای همیشه</b> پاک می‌شوند. مطمئن هستید؟<br><br>پیشنهاد: ابتدا پشتیبان بگیرید.", () => {
+    DB = { items: [], history: [], activity: [], settings: { ...DEFAULT_SETTINGS } };
+    activeBranch = DB.settings.branches[0];
+    save(); closeModal(); toast("🗑️ همه داده‌ها پاک شد"); setTimeout(() => location.reload(), 700);
+  }, "پاک کن");
+}
+function renderStorageInfo() {
+  const bytes = new Blob([JSON.stringify(DB)]).size;
+  const kb = (bytes / 1024).toFixed(1);
+  const fsStatus = fileHandle ? "✅ متصل — ذخیره خودکار فعال" : "⚠️ متصل نیست — داده فقط در مرورگر";
+  $("storageInfo").innerHTML = `<div class="kpi-mini">
+    <div><b>${DB.items.length}</b>موتور</div>
+    <div><b>${DB.history.length}</b>رخداد</div>
+    <div><b>${DB.activity.length}</b>فعالیت</div>
+    <div><b>${kb} KB</b>حجم داده</div>
+    <div style="grid-column:1/-1;"><b>${fsStatus}</b>وضعیت فایل امن</div></div>`;
+}
+function loadDemo() {
+  openModal("داده نمونه", "داده‌های نمایشی به انبار اضافه شود؟ (داده‌های فعلی حفظ می‌شوند)", () => {
+    closeModal(); seedDemo(); toast("✅ داده نمونه اضافه شد");
+    renderBranchTabs(); renderDashboard(); save();
+  }, "افزودن");
+}
+function seedDemo() {
+  const companies = ["هوندا", "تکتاز", "پیشتاز", "کویر"];
+  const names = ["CGL 125", "دینو ۲۰۰", "پالس ۲۰۰", "آریا ۱۵۰"];
+  const colors = ["مشکی", "سفید", "قرمز", "آبی"];
+  branches().slice(0, 3).forEach((b, bi) => {
+    for (let i = 0; i < 3; i++) {
+      const chassis = `DEMO${bi}${i}${Math.floor(Math.random() * 9000 + 1000)}`;
+      DB.items.push({
+        id: uid("it"), branch: b, company: companies[(bi + i) % companies.length],
+        name: names[(bi + i) % names.length], volume: "125cc", type: "اسپرت",
+        color: colors[i % colors.length], year: "1402", chassis, engine: "",
+        plate: "", plateSerial: "", price: 300000000 + i * 20000000,
+        payStatus: "نقدی", specs: "", note: "داده نمونه", supplier: "نمایشی",
+        supplierPhone: "", barname: "DEMO-" + i, receiver: "مدیر", dateIn: todayJalali(),
+        status: STATUS.IN, saleInfo: null, exitInfo: null, warranty: null, createdAt: new Date().toISOString()
+      });
+    }
+  });
+}
+
+/* ==========================================================================
+   میان‌برها
+   ========================================================================== */
+function openShortcuts() {
+  openModal("⌨️ میان‌برهای صفحه‌کلید", `
+    <div class="info-grid" style="grid-template-columns:1fr;">
+      <div><b>Ctrl + S</b> — ذخیره داده‌ها</div>
+      <div><b>Ctrl + P</b> — چاپ صفحه فعلی</div>
+      <div><b>Ctrl + Enter</b> — تایید مودال باز</div>
+      <div><b>Esc</b> — بستن مودال</div>
+      <div><b>Alt + 1..9</b> — جابه‌جایی سریع بین تب‌ها</div>
+    </div>`, null);
+}
+const TAB_ORDER = ["dash", "in", "out", "cycle", "inv", "report", "log", "settings", "backup"];
+document.addEventListener("keydown", e => {
+  if (e.altKey && !e.ctrlKey) {
+    const n = parseInt(e.key);
+    if (n >= 1 && n <= TAB_ORDER.length) {
+      const b = document.querySelector(`#mainNav button[data-tab="${TAB_ORDER[n - 1]}"]`);
+      if (b) { e.preventDefault(); b.click(); }
+    }
+  }
+  if (e.ctrlKey && e.key === "Enter") {
+    const activeTab = document.querySelector("#mainNav button.active").dataset.tab;
+    if (activeTab === "in") { e.preventDefault(); addEntry(); }
+    if (activeTab === "out") { e.preventDefault(); addExit(); }
+  }
+});
+
+/* ==========================================================================
+   فرم‌ها: پاک کردن
+   ========================================================================== */
+function clearForm(prefix) {
+  const ids = {
+    in: ["in_barname", "in_supplier", "in_supplier_phone", "in_receiver", "in_company", "in_name", "in_volume", "in_type", "in_color", "in_year", "in_chassis", "in_engine", "in_plate", "in_plateSerial", "in_price", "in_prepay", "in_specs", "in_note"],
+    out: ["out_receipt", "out_buyer", "out_father", "out_national", "out_birth", "out_phone", "out_price", "out_discount", "out_tradeIn", "out_address", "out_note", "out_itemSearch"]
+  };
+  (ids[prefix] || []).forEach(id => { const el = $(id); if (el) { el.value = ""; el.dataset.raw = ""; } });
+  if (prefix === "in") { $("in_qty").value = 1; $("in_date").value = todayJalali(); }
+  if (prefix === "out") { $("out_date").value = todayJalali(); $("out_item").selectedIndex = 0; }
+  clearErrs(prefix === "in" ? $("inForm") : $("outForm"));
+}
+
+/* ==========================================================================
+   راه‌اندازی
+   ========================================================================== */
+function bindLiveInputs() {
+  const live = (id, fn) => { const el = $(id); if (el) el.addEventListener("input", fn); };
+  live("inv_q", renderInventory);
+  live("inv_status", renderInventory);
+  live("inv_company", renderInventory);
+  live("inv_sort", renderInventory);
+  live("cyc_q", renderCycle);
+  live("cyc_status", renderCycle);
+  live("log_q", renderLog);
+}
+
+async function boot() {
+  load();
+  applyTheme();
+  buildPanels();
+  buildForms();
+  setupNav();
+  bindLiveInputs();
+  attachNumFmt(document);
+  document.querySelectorAll(".dp-input").forEach(buildJalaliPicker);
+
+  $("in_date").value = todayJalali();
+  $("out_date").value = todayJalali();
+
+  toggleOutType();
+  populateDatalists();
+  renderBranchTabs();
+  renderDashboard();
+
+  await initFileStorage();
+
+  // ذخیره خودکار قبل از بستن
+  window.addEventListener("beforeunload", save);
+
+  // کنترل ورود
+  bootAuth();
+
+  $("login_pass") && $("login_pass").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+  $("setup_pass2") && $("setup_pass2").addEventListener("keydown", e => { if (e.key === "Enter") doSetupManager(); });
+}
+boot();
+</script>
+</body>
+</html>
