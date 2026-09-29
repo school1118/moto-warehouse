@@ -272,7 +272,19 @@ const COLLEAGUE_PAY = ["نقدی", "چکی", "اقساطی"];
 const PART_CATEGORIES = ["روغن و فیلتر", "لاستیک و تیوب", "برق و باتری", "ترمز", "موتور و انتقال", "بدنه و پلاستیک", "متفرقه"];
 
 let DB = {
-  items: [], history: [], activity: [], users: [], settings: { ...DEFAULT_SETTINGS }
+  items: [], history: [], activity: [], users: [],
+  groups: [
+    { key: "planview", label: "طرح ویو", min: 1, max: 0 },
+    { key: "click", label: "کلیک", min: 1, max: 0 },
+    { key: "airox", label: "آیروکس", min: 1, max: 0 },
+    { key: "trail", label: "تریل", min: 1, max: 0 },
+    { key: "honda", label: "هوندا", min: 1, max: 0 },
+    { key: "scooter", label: "اسکوتر", min: 1, max: 0 },
+    { key: "boxer", label: "باکسر", min: 1, max: 0 },
+    { key: "street", label: "استریت", min: 1, max: 0 },
+    { key: "mini", label: "اسکوتر مینی", min: 1, max: 0 }
+  ],
+  settings: { ...DEFAULT_SETTINGS }
 };
 let activeBranch = DEFAULT_SETTINGS.branches[0];
 let currentUser = null;      // { username, role: "manager"|"staff", branch }
@@ -283,6 +295,84 @@ let uiState = {
   cycFilters: { status: "", q: "" },
   invTab: "active"
 };
+/* ---------- ستون‌های قابل انتخاب جدول‌ها (تغییر ۱) ---------- */
+const INV_COLS = [
+  { k: "branch", label: "شعبه" },
+  { k: "company", label: "شرکت" },
+  { k: "group", label: "گروه" },
+  { k: "name", label: "نام موتور" },
+  { k: "volume", label: "حجم" },
+  { k: "type", label: "تیپ" },
+  { k: "color", label: "رنگ" },
+  { k: "year", label: "سال ساخت" },
+  { k: "chassis", label: "شاسی" },
+  { k: "engine", label: "شماره موتور" },
+  { k: "plate", label: "پلاک" },
+  { k: "supplier", label: "تامین‌کننده" },
+  { k: "barname", label: "بارنامه" },
+  { k: "dateIn", label: "تاریخ خرید" },
+  { k: "price", label: "قیمت خرید" },
+  { k: "status", label: "وضعیت" }
+];
+const INV_COLS_DEFAULT = ["branch", "company", "group", "name", "color", "chassis", "plate", "supplier", "price", "status"];
+const CYC_COLS = [
+  { k: "branch", label: "شعبه" },
+  { k: "company", label: "شرکت" },
+  { k: "group", label: "گروه" },
+  { k: "name", label: "نام موتور" },
+  { k: "volume", label: "حجم" },
+  { k: "type", label: "تیپ" },
+  { k: "color", label: "رنگ" },
+  { k: "year", label: "سال ساخت" },
+  { k: "chassis", label: "شاسی" },
+  { k: "engine", label: "شماره موتور" },
+  { k: "plate", label: "پلاک" },
+  { k: "buyer", label: "مشتری/همکار" },
+  { k: "national", label: "کد ملی" },
+  { k: "phone", label: "تلفن خریدار" },
+  { k: "payStatus", label: "وضعیت فروش" },
+  { k: "salePrice", label: "قیمت فروش" },
+  { k: "receipt", label: "قولنامه" },
+  { k: "saleDate", label: "تاریخ فروش" },
+  { k: "returnCount", label: "تعداد برگشتی" },
+  { k: "status", label: "وضعیت" }
+];
+const CYC_COLS_DEFAULT = ["branch", "company", "group", "name", "plate", "chassis", "buyer", "national", "payStatus", "status"];
+
+function getCols(which) {
+  const all = which === "inv" ? INV_COLS : CYC_COLS;
+  const def = which === "inv" ? INV_COLS_DEFAULT : CYC_COLS_DEFAULT;
+  const saved = (DB.settings.cols || {})[which];
+  const chosen = Array.isArray(saved) && saved.length ? saved : def;
+  return all.filter(c => chosen.includes(c.k));
+}
+function colLabel(which, k) {
+  const all = which === "inv" ? INV_COLS : CYC_COLS;
+  const c = all.find(x => x.k === k);
+  return c ? c.label : k;
+}
+function openColumnPicker(which) {
+  const all = which === "inv" ? INV_COLS : CYC_COLS;
+  const chosen = getCols(which).map(c => c.k);
+  const html = `
+    <p class="helper">ستون‌هایی که می‌خواهید در جدول نمایش داده شوند را تیک بزنید. انتخاب شما ذخیره می‌شود.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;">
+      ${all.map(c => `<label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:4px 6px;border-radius:6px;background:#f6f8fc;">
+        <input type="checkbox" class="colchk" value="${c.k}" ${chosen.includes(c.k) ? "checked" : ""}> ${esc(c.label)}</label>`).join("")}
+    </div>`;
+  openModal("🧩 انتخاب ستون‌های نمایش", html, () => {
+    const picked = [...document.querySelectorAll("#modalBack .colchk:checked")].map(x => x.value);
+    if (!picked.length) { toast("حداقل یک ستون انتخاب کنید", false); return; }
+    // ترتیب اصلی حفظ شود
+    const ordered = all.map(c => c.k).filter(k => picked.includes(k));
+    DB.settings.cols = DB.settings.cols || {};
+    DB.settings.cols[which] = ordered;
+    save();
+    closeModal();
+    if (which === "inv") renderInventory(); else renderCycle();
+    toast("✅ ستون‌ها ذخیره شد");
+  }, "ذخیره");
+}
 
 /* ---------- ذخیره/بارگذاری ---------- */
 function save(opts = {}) {
@@ -310,6 +400,7 @@ function load() {
       DB = {
         items: d.items || [], history: d.history || [],
         activity: d.activity || [], users: d.users || [],
+        groups: d.groups || DB.groups,
         settings: Object.assign({}, DEFAULT_SETTINGS, d.settings || {})
       };
     } catch (e) { console.warn("bad data", e); }
@@ -341,7 +432,55 @@ function logActivity(action, detail) {
     if (typeof _pendingActivity !== "undefined") { _pendingActivity.push(rec); if (typeof scheduleSupaPush === "function") scheduleSupaPush(); }
   }
 }
+/* تاریخچه: هر رخداد برای همیشه حفظ و به سرور ارسال می‌شود (append-only) */
+const _pendingHistory = [];
+function pushHistory(rec) {
+  rec.id = rec.id || uid("h");
+  rec.createdAt = rec.createdAt || new Date().toISOString();
+  DB.history.push(rec);
+  if (typeof SUPA_ON !== "undefined" && SUPA_ON) {
+    _pendingHistory.push(rec);
+    if (typeof scheduleSupaPush === "function") scheduleSupaPush();
+  }
+}
 function isManager() { return activeBranch === MANAGER; }
+
+/* ---------- گروه‌های موجودی ---------- */
+function groupsList() { return DB.groups && DB.groups.length ? DB.groups : []; }
+function groupLabel(key) {
+  const g = groupsList().find(x => x.key === key);
+  return g ? g.label : (key || "بدون گروه");
+}
+/* موجودی یک گروه در شعبه فعال (فقط اقلام «موجود») */
+function groupStock(key, branch) {
+  const b = branch || activeBranch;
+  return DB.items.filter(i => !i.deleted && i.status === STATUS.IN && i.group === key &&
+    (b === MANAGER || i.branch === b)).length;
+}
+/* همه گروه‌ها با شمارش و وضعیت هشدار */
+function groupsStatus(branch) {
+  return groupsList().map(g => {
+    const count = groupStock(g.key, branch);
+    let state = "ok";
+    if (g.min && count <= 0) state = "empty";
+    else if (g.min && count <= g.min) state = "low";
+    if (g.max && count >= g.max) state = "high";
+    return { g, count, state };
+  });
+}
+/* اعلان هشدار برای گروه‌هایی که به حداقل رسیده‌اند */
+function checkGroupAlerts() {
+  const warns = groupsStatus().filter(x => x.state === "low" || x.state === "empty");
+  if (!warns.length) return;
+  const txt = warns.map(x => `${x.g.label}: ${x.count} (حداقل ${x.g.min})`).join(" — ");
+  toast("⚠️ هشدار موجودی کم — " + txt, "warn");
+  const banner = $("lowGroupBanner");
+  if (banner) {
+    banner.style.display = "block";
+    banner.innerHTML = "⚠️ <b>گروه‌های کم‌موجود:</b> " + warns.map(x =>
+      `<span class="badge ${x.state === "empty" ? "b-out" : "b-return"}" style="margin:2px;">${esc(x.g.label)}: ${x.count}</span>`).join(" ");
+  }
+}
 
 /* ---------- اعداد ---------- */
 function formatNumberInput(el) {
@@ -916,6 +1055,8 @@ function buildPanels() {
     <h2>داشبورد <span class="badge-branch" id="dashBranchLabel">-</span></h2>
     <div class="stat-cards" id="dashCards"></div>
     <div id="dashAlerts"></div>
+    <h3>🧩 موجودی گروه‌ها</h3>
+    <div id="groupCards" class="stat-cards"></div>
     <div class="row-flex">
       <div style="flex:2;min-width:280px;">
         <h3>📊 نمودار فروش ۶ ماه اخیر <span class="helper">(تومان)</span></h3>
@@ -968,6 +1109,7 @@ function buildPanels() {
       <div class="field"><label>تا تاریخ</label><div class="dp-wrap"><input class="dp-input" id="cyc_to" readonly placeholder="—"></div></div>
       <button class="btn" onclick="renderCycle()">🔍 فیلتر</button>
       <button class="btn gray" onclick="resetCycleFilters()">پاک کردن فیلتر</button>
+      <button class="btn" onclick="openColumnPicker('cyc')">🧩 انتخاب ستون</button>
       <button class="btn purple" onclick="exportCycleCSV()">⬇️ CSV</button>
       <button class="btn gray" onclick="printSection()">🖨️ چاپ</button>
     </div>
@@ -991,6 +1133,7 @@ function buildPanels() {
       <div class="field"><label>مرتب‌سازی</label><select id="inv_sort"><option value="">پیش‌فرض</option><option value="price_desc">قیمت (بیشترین)</option><option value="price_asc">قیمت (کمترین)</option><option value="name">نام موتور</option><option value="date_desc">جدیدترین ورود</option></select></div>
       <button class="btn" onclick="renderInventory()">🔍 فیلتر</button>
       <button class="btn gray" onclick="resetInvFilters()">پاک کردن فیلتر</button>
+      <button class="btn" onclick="openColumnPicker('inv')">🧩 انتخاب ستون</button>
       <button class="btn purple" onclick="exportInvCSV()">⬇️ CSV</button>
       <button class="btn gray" onclick="printSection()">🖨️ چاپ</button>
     </div>
@@ -1008,8 +1151,9 @@ function buildPanels() {
     <h2>📝 لاگ فعالیت‌ها <span class="badge-branch">تاریخچه کامل عملیات</span></h2>
     <div class="toolbar">
       <div class="field search"><label>🔍 جستجو</label><input id="log_q" placeholder="جستجو در عملیات..."></div>
+      <button class="btn" onclick="openHistoryArchive()">📚 تاریخچه کامل موتورها</button>
       <button class="btn gray" onclick="exportLogCSV()">⬇️ CSV</button>
-      <button class="btn danger" onclick="clearLog()">🗑️ پاک کردن لاگ</button>
+      <button class="btn danger" onclick="clearLog()">🗑️ پاک کردن لاگ عملیات</button>
     </div>
     <div id="logTable"></div>
   </div>
@@ -1024,6 +1168,9 @@ function buildPanels() {
     <button class="btn success" onclick="saveSettings()">✅ ذخیره تنظیمات</button>
     <h3>📋 مدیریت شعب</h3>
     <div id="brManage"></div>
+    <h3>🧩 گروه‌های موجودی (حداقل / حداکثر)</h3>
+    <p class="helper">برای هر گروه، حداقل و حداکثر موجودی را تعیین کنید. وقتی موجودی به حداقل برسد، هشدار داده می‌شود. (حداکثر = ۰ یعنی بدون سقف)</p>
+    <div id="grpManage"></div>
   </div>
 
   <div class="panel" id="tab-backup">
@@ -1070,6 +1217,7 @@ function buildForms() {
     <div class="field"><label>شماره تماس تامین‌کننده</label><input id="in_supplier_phone"></div>
     <div class="field"><label>تحویل‌گیرنده *</label><input id="in_receiver"></div>
     <div class="field"><label>شرکت *</label><input id="in_company" list="dl_companies"><datalist id="dl_companies"></datalist></div>
+    <div class="field"><label>گروه</label><select id="in_group"></select></div>
     <div class="field"><label>نام موتور *</label><input id="in_name"></div>
     <div class="field"><label>حجم</label><input id="in_volume" placeholder="مثلا 125cc"></div>
     <div class="field"><label>تیپ</label><input id="in_type"></div>
@@ -1219,6 +1367,15 @@ function populateDatalists() {
   const buyers = [...new Set(DB.items.map(i => i.saleInfo && i.saleInfo.buyer).filter(Boolean))];
   const set = (id, arr) => { const el = $(id); if (el) el.innerHTML = arr.map(a => `<option value="${esc(a)}"></option>`).join(""); };
   set("dl_companies", companies); set("dl_suppliers", suppliers); set("dl_buyers", buyers);
+  fillGroupSelect();
+}
+/* پر کردن سلکت گروه‌ها */
+function fillGroupSelect() {
+  const el = $("in_group"); if (!el) return;
+  const cur = el.value;
+  el.innerHTML = '<option value="">— بدون گروه —</option>' +
+    groupsList().map(g => `<option value="${esc(g.key)}">${esc(g.label)}</option>`).join("");
+  if (cur) el.value = cur;
 }
 /* ==========================================================================
    ورود کالا
@@ -1289,6 +1446,7 @@ function pushItems(branch, d) {
     const item = {
       id: uid("it"), branch,
       company: d.company, name: $("in_name").value.trim(),
+      group: $("in_group") ? $("in_group").value : "",
       volume: $("in_volume").value.trim(),
       type: $("in_type").value.trim(),
       color: $("in_color").value.trim(),
@@ -1310,7 +1468,7 @@ function pushItems(branch, d) {
     };
     DB.items.push(item);
     newIds.push(item.id);
-    DB.history.push({
+    pushHistory({
       id: uid("h"), itemId: item.id, branch,
       action: "in", fromStatus: null, toStatus: STATUS.IN, date: d.date,
       note: `ورود از بارنامه ${d.barname} - تامین‌کننده: ${d.supplier} - تحویل‌گیرنده: ${d.receiver}`,
@@ -1323,6 +1481,7 @@ function pushItems(branch, d) {
   toast(`✅ ${d.qty} موتور در ${branch} ثبت شد`);
   clearForm("in");
   renderBranchTabs(); renderDashboard();
+  if (typeof checkGroupAlerts === "function") setTimeout(checkGroupAlerts, 300);
 }
 
 /* ==========================================================================
@@ -1430,7 +1589,7 @@ async function addExit() {
     changeStatusInternal(item, STATUS.OUT, `انتقال (${kind}) به ${to} - خروج از ${from} - رسید:${receipt}`);
     const sourceBranch = from;
     item.branch = to; item.status = STATUS.IN; item.dateIn = date;
-    DB.history.push({
+    pushHistory({
       id: uid("h"), itemId: item.id, branch: to,
       action: "in", fromStatus: STATUS.OUT, toStatus: STATUS.IN, date,
       note: `ورود به ${to} بابت انتقال (${kind}) از ${sourceBranch} - رسید:${receipt}`,
@@ -1444,12 +1603,13 @@ async function addExit() {
   clearForm("out");
   toggleOutType();
   renderBranchTabs(); renderDashboard();
+  if (typeof checkGroupAlerts === "function") setTimeout(checkGroupAlerts, 300);
 }
 
 function changeStatusInternal(item, newStatus, note) {
   const old = item.status;
   item.status = newStatus;
-  DB.history.push({
+  pushHistory({
     id: uid("h"), itemId: item.id, branch: item.branch,
     action: "status", fromStatus: old, toStatus: newStatus,
     date: todayJalali(), note: note || "تغییر وضعیت",
@@ -1521,32 +1681,41 @@ function renderCycle() {
   $("cycCount").textContent = `${rows.length} مورد`;
   if (!rows.length) { $("cycTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
 
+  const cols = getCols("cyc");
+  const cellVal = (it, k, s) => {
+    switch (k) {
+      case "status": return statusBadge(it.status);
+      case "group": return it.group ? `<span class="badge b-in">${esc(groupLabel(it.group))}</span>` : "-";
+      case "buyer": return esc(s.buyer) || "-";
+      case "national": return `<span style="font-size:10px;direction:ltr;">${maskNational(s.national)}</span>`;
+      case "phone": return `<span style="direction:ltr;">${esc(s.phone) || "-"}</span>`;
+      case "payStatus": return s.payStatus ? payBadge(s.payStatus) : "-";
+      case "salePrice": return money(s.salePrice);
+      case "receipt": return esc(s.receipt) || "-";
+      case "saleDate": return esc(s.date) || "-";
+      case "volume": case "type": case "color": case "year": return esc(it[k]) || "-";
+      case "engine": case "chassis": return `<span style="font-size:10px;direction:ltr;">${esc(it[k]) || "-"}</span>`;
+      case "plate": return `<span style="direction:ltr;">${esc(it.plate) || "-"}</span>`;
+      case "returnCount": return it.returnCount ? `<span class="badge b-return">${it.returnCount} بار</span>` : "-";
+      case "company": return `<b>${esc(it.company)}</b>`;
+      default: return esc(it[k]) || "-";
+    }
+  };
   $("cycTable").innerHTML = `<div style="overflow-x:auto;"><table>
     <thead><tr>
-      <th onclick="clickSort(this,${"'cycle'"}, 'branch')">شعبه${sortIndicator(uiState.sort.cycle, "branch")}</th>
-      <th onclick="clickSort(this,${"'cycle'"}, 'name')">شرکت / نام${sortIndicator(uiState.sort.cycle, "name")}</th>
-      <th class="no-sort">پلاک</th>
-      <th class="no-sort">شاسی</th>
-      <th class="no-sort">مشتری/همکار</th>
-      <th class="no-sort">کد ملی</th>
-      <th class="no-sort">وضعیت فروش</th>
-      <th onclick="clickSort(this,${"'cycle'"}, 'status')">وضعیت${sortIndicator(uiState.sort.cycle, "status")}</th>
+      ${cols.map(c => `<th class="no-sort">${esc(c.label)}</th>`).join("")}
       <th class="no-sort">عملیات</th>
     </tr></thead><tbody>` +
     rows.map(it => {
       const s = decryptSale(it.saleInfo || {});
       const nextLabel = { "موجود": "💰 فروش", "رزرو": "💰 فروش", "فروش": "📤 خروج", "خروج": "🔄 برگشتی", "برگشتی": "✅ بازگشت" }[it.status] || "—";
+      const reserveBtn = it.status === STATUS.IN ? `<button class="btn small" onclick="openReserveModal('${it.id}')">🔖 رزرو</button>` : "";
+      const unreserveBtn = it.status === STATUS.RESERVED ? `<button class="btn small gray" onclick="unreserveItem('${it.id}')">↩️ لغو رزرو</button>` : "";
       return `<tr>
-        <td>${esc(it.branch)}</td>
-        <td><b>${esc(it.company)}</b> ${esc(it.name)}</td>
-        <td style="direction:ltr;">${esc(it.plate) || "-"}</td>
-        <td style="font-size:10px;direction:ltr;">${esc(it.chassis) || "-"}</td>
-        <td>${esc(s.buyer) || "-"}</td>
-        <td style="font-size:10px;direction:ltr;">${maskNational(s.national)}</td>
-        <td>${s.payStatus ? payBadge(s.payStatus) : "-"}</td>
-        <td>${statusBadge(it.status)}</td>
+        ${cols.map(c => `<td>${cellVal(it, c.k, s)}</td>`).join("")}
         <td style="white-space:nowrap;">
           <button class="btn small warn" onclick="nextStatusClick('${it.id}')">${nextLabel}</button>
+          ${reserveBtn}${unreserveBtn}
           <button class="btn small success" onclick="editItem('${it.id}')">✏️</button>
           <button class="btn small" onclick="showHistory('${it.id}')">📜</button>
         </td>
@@ -1577,16 +1746,121 @@ function nextStatusClick(itemId) {
       save({ items: [item.id] }); closeModal(); toast("✅ خروج ثبت شد"); renderCycle(); renderDashboard();
     });
   } else if (item.status === STATUS.OUT) {
-    openModal("ثبت برگشتی", `موتور <b>${esc(item.company)} ${esc(item.name)}</b> برگشتی شود؟`, () => {
-      changeStatusInternal(item, STATUS.RETURN, "ثبت برگشتی");
-      save({ items: [item.id] }); closeModal(); toast("🔄 برگشتی ثبت شد"); renderCycle(); renderDashboard();
-    });
+    openReturnModal(item);
   } else if (item.status === STATUS.RETURN) {
     openModal("بازگشت به انبار", `موتور <b>${esc(item.company)} ${esc(item.name)}</b> به انبار برگردد؟`, () => {
       changeStatusInternal(item, STATUS.IN, "بازگشت به موجودی");
       save({ items: [item.id] }); closeModal(); toast("✅ به موجودی بازگشت"); renderCycle(); renderDashboard();
     });
   }
+}
+
+/* فرم رزرو */
+function openReserveModal(itemId) {
+  const item = DB.items.find(e => e.id === itemId);
+  if (!item) return;
+  const html = `
+    <div class="field"><label>نام خریدار (رزروکننده) *</label><input id="rz_buyer"></div>
+    <div class="field" style="margin-top:8px;"><label>شماره تماس</label><input id="rz_phone" style="direction:ltr;"></div>
+    <div class="field" style="margin-top:8px;"><label>تاریخ رزرو (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="rz_date" readonly></div></div>
+    <div class="field" style="margin-top:8px;"><label>مبلغ بیعانه (اختیاری)</label><input id="rz_deposit" class="num-fmt"></div>
+    <div class="field" style="margin-top:8px;"><label>توضیحات</label><textarea id="rz_note" rows="2"></textarea></div>
+    <div id="rz_err" class="login-err"></div>`;
+  openModal("🔖 رزرو موتور", `موتور: <b>${esc(item.company)} ${esc(item.name)}</b> - شاسی: ${esc(item.chassis) || "-"}${html}`, () => {
+    const buyer = $("rz_buyer").value.trim();
+    const date = $("rz_date").value.trim();
+    const err = $("rz_err");
+    if (!buyer) { err.textContent = "نام خریدار الزامی است"; return; }
+    if (!date) { err.textContent = "تاریخ رزرو الزامی است"; return; }
+    const deposit = getNumber($("rz_deposit"));
+    const note = $("rz_note").value.trim();
+    item.reserveInfo = { buyer, phone: $("rz_phone").value.trim(), date, deposit, note };
+    pushHistory({
+      itemId: item.id, branch: item.branch, action: "reserve",
+      fromStatus: item.status, toStatus: STATUS.RESERVED, date,
+      note: `رزرو برای ${buyer}${deposit ? " — بیعانه: " + money(deposit) : ""}${note ? " — " + note : ""}`,
+      by: userTag(), extra: { buyer, phone: item.reserveInfo.phone, deposit, note }
+    });
+    changeStatusInternal(item, STATUS.RESERVED, `رزرو برای ${buyer}`);
+    save({ items: [item.id] });
+    closeModal(); toast("🔖 رزرو ثبت شد"); renderCycle(); renderDashboard();
+  }, "ثبت رزرو", () => { if ($("rz_date")) { buildJalaliPicker($("rz_date")); attachNumFmt($("modalMsg")); } });
+}
+function unreserveItem(itemId) {
+  const item = DB.items.find(e => e.id === itemId);
+  if (!item) return;
+  openModal("لغو رزرو", `رزرو موتور <b>${esc(item.company)} ${esc(item.name)}</b> لغو شود؟`, () => {
+    pushHistory({
+      itemId: item.id, branch: item.branch, action: "status",
+      fromStatus: STATUS.RESERVED, toStatus: STATUS.IN, date: todayJalali(),
+      note: `لغو رزرو${item.reserveInfo && item.reserveInfo.buyer ? " مشتری: " + item.reserveInfo.buyer : ""}`,
+      by: userTag()
+    });
+    item.reserveInfo = null;
+    changeStatusInternal(item, STATUS.IN, "لغو رزرو و بازگشت به موجودی");
+    save({ items: [item.id] });
+    closeModal(); toast("↩️ رزرو لغو شد"); renderCycle(); renderDashboard();
+  }, "لغو رزرو");
+}
+
+/* فرم برگشتی: تاریخ + دلیل + نام خریدار (قابل چندبار ثبت) */
+function openReturnModal(item) {
+  const prevSales = DB.history.filter(h => h.itemId === item.id && h.action === "sale");
+  const lastBuyer = item.saleInfo ? (decryptSale(item.saleInfo).buyer || "") : "";
+  const html = `
+    <div class="alert" style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px;">
+      ℹ️ این موتور قبلاً ${prevSales.length} بار فروش/برگشت ثبت شده است. هر برگشت به‌صورت جداگانه در تاریخچه حفظ می‌شود.
+    </div>
+    <div class="field"><label>نام خریدار (برگشت‌دهنده)</label><input id="ret_buyer" value="${esc(lastBuyer)}"></div>
+    <div class="field" style="margin-top:8px;"><label>تاریخ برگشت (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="ret_date" readonly></div></div>
+    <div class="field" style="margin-top:8px;"><label>دلیل برگشت *</label><textarea id="ret_reason" rows="2" placeholder="مثلاً: عدم رضایت مشتری، ایراد فنی، ..."></textarea></div>
+    <div class="field" style="margin-top:8px;"><label>توضیحات (اختیاری)</label><textarea id="ret_note" rows="2"></textarea></div>
+    <div id="ret_err" class="login-err"></div>`;
+  openModal("🔄 ثبت برگشتی", html, () => {
+    const date = $("ret_date").value.trim();
+    const reason = $("ret_reason").value.trim();
+    const buyer = $("ret_buyer").value.trim();
+    const note = $("ret_note").value.trim();
+    const err = $("ret_err");
+    if (!date) { err.textContent = "تاریخ برگشت الزامی است"; return; }
+    if (!reason) { err.textContent = "دلیل برگشت الزامی است"; return; }
+
+    // مقادیر را از قبل نگه می‌داریم چون مودال هشدار فرم را جایگزین می‌کند
+    const doReturn = () => {
+      const extra = { buyer, returnReason: reason, returnDate: date, note };
+      pushHistory({
+        itemId: item.id, branch: item.branch, action: "return",
+        fromStatus: item.status, toStatus: STATUS.RETURN, date,
+        note: `برگشت از ${buyer || "نامشخص"} — دلیل: ${reason}${note ? " — " + note : ""}`,
+        by: userTag(), plate: item.plate || "", extra
+      });
+      item.returnCount = (item.returnCount || 0) + 1;
+      item.lastReturn = { buyer, reason, date };
+      changeStatusInternal(item, STATUS.RETURN, `برگشتی از ${buyer || "نامشخص"} — ${reason}`);
+      save({ items: [item.id] });
+      closeModal(); toast("🔄 برگشتی ثبت شد"); renderCycle(); renderDashboard();
+    };
+
+    // تغییر ۳: هشدار تکراری بر اساس نام خریدار + پلاک
+    const norm = s => String(s || "").toLowerCase().trim();
+    const dupByBuyer = buyer ? DB.history.filter(h => h.action === "return" && norm(h.extra && h.extra.buyer) === norm(buyer)) : [];
+    const dupPlate = item.plate ? DB.history.filter(h => h.action === "return" && norm(h.plate) === norm(item.plate)) : [];
+
+    if (dupByBuyer.length) {
+      openModal("⚠️ هشدار: برگشت تکراری از این خریدار",
+        `این خریدار (<b>${esc(buyer)}</b>) قبلاً ${dupByBuyer.length} بار موتور برگشتی ثبت کرده است.<br><br>` +
+        `سابقه: ${dupByBuyer.map(h => `${esc(h.date)} — ${esc((h.extra && h.extra.returnReason) || "-")}`).join("<br>")}<br><br>آیا باز هم ثبت شود؟`,
+        () => { doReturn(); }, "بله، ثبت کن");
+      return;
+    }
+    if (dupPlate.length) {
+      openModal("⚠️ هشدار: پلاک تکراری",
+        `پلاک <b>${esc(item.plate)}</b> قبلاً ${dupPlate.length} بار در برگشتی‌ها ثبت شده است.<br><br>آیا باز هم ثبت شود؟`,
+        () => { doReturn(); }, "بله، ثبت کن");
+      return;
+    }
+    doReturn();
+  }, "ثبت برگشتی", () => { if ($("ret_date")) buildJalaliPicker($("ret_date")); });
 }
 
 function openSaleModal(item) {
@@ -1621,6 +1895,12 @@ function openSaleModal(item) {
     });
     item.saleDate = item.saleInfo.date;
     item.soldBy = userTag();
+    pushHistory({
+      itemId: item.id, branch: item.branch, action: "sale",
+      fromStatus: item.status, toStatus: STATUS.SALE, date: item.saleInfo.date,
+      note: `فروش به ${buyer} (${item.saleInfo.buyerType}) - قولنامه:${receipt} - وضعیت:${item.saleInfo.payStatus}`,
+      by: userTag(), extra: { buyer, receipt, salePrice: item.saleInfo.salePrice, payStatus: item.saleInfo.payStatus }
+    });
     changeStatusInternal(item, STATUS.SALE, `فروش به ${buyer} (${item.saleInfo.buyerType}) - قولنامه:${receipt}`);
     save({ items: [item.id] }); closeModal(); toast("✅ فروش ثبت شد");
     renderCycle(); renderDashboard(); renderBranchTabs();
@@ -1651,6 +1931,7 @@ function editItem(itemId) {
     <h4 style="color:#2a5298;margin:12px 0 6px;">مشخصات موتور</h4>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div class="field"><label>شرکت</label><input id="e_company" value="${esc(it.company)}"></div>
+      <div class="field"><label>گروه</label><select id="e_group">${'<option value="">— بدون گروه —</option>' + groupsList().map(g => `<option value="${esc(g.key)}" ${it.group === g.key ? "selected" : ""}>${esc(g.label)}</option>`).join("")}</select></div>
       <div class="field"><label>نام موتور</label><input id="e_name" value="${esc(it.name)}"></div>
       <div class="field"><label>حجم</label><input id="e_volume" value="${esc(it.volume)}"></div>
       <div class="field"><label>تیپ</label><input id="e_type" value="${esc(it.type)}"></div>
@@ -1682,6 +1963,7 @@ function editItem(itemId) {
   openModal("✏️ ویرایش موتور", html, async () => {
     const oldBranch = it.branch, oldStatus = it.status;
     it.company = $("e_company").value.trim(); it.name = $("e_name").value.trim();
+    if ($("e_group")) it.group = $("e_group").value;
     it.volume = $("e_volume").value.trim(); it.type = $("e_type").value.trim();
     it.color = $("e_color").value.trim(); it.year = $("e_year").value.trim();
     it.chassis = $("e_chassis").value.trim(); it.engine = $("e_engine").value.trim();
@@ -1701,10 +1983,10 @@ function editItem(itemId) {
       }));
     }
     if (oldBranch !== it.branch) {
-      DB.history.push({ id: uid("h"), itemId: it.id, branch: it.branch, action: "status", fromStatus: null, toStatus: null, date: todayJalali(), note: `ویرایش: انتقال از ${oldBranch} به ${it.branch}`, by: userTag(), createdAt: new Date().toISOString() });
+      pushHistory({ id: uid("h"), itemId: it.id, branch: it.branch, action: "status", fromStatus: null, toStatus: null, date: todayJalali(), note: `ویرایش: انتقال از ${oldBranch} به ${it.branch}`, by: userTag(), createdAt: new Date().toISOString() });
     }
     if (oldStatus !== newStatus) changeStatusInternal(it, newStatus, "تغییر وضعیت از طریق ویرایش");
-    DB.history.push({ id: uid("h"), itemId: it.id, branch: it.branch, action: "edit", fromStatus: it.status, toStatus: it.status, date: todayJalali(), note: `ویرایش اطلاعات توسط ${userTag()}`, by: userTag(), createdAt: new Date().toISOString() });
+    pushHistory({ id: uid("h"), itemId: it.id, branch: it.branch, action: "edit", fromStatus: it.status, toStatus: it.status, date: todayJalali(), note: `ویرایش اطلاعات توسط ${userTag()}`, by: userTag(), createdAt: new Date().toISOString() });
     save({ items: [it.id] }); closeModal(); toast("✅ ویرایش شد");
     renderCycle(); renderInventory(); renderDashboard(); renderBranchTabs();
   }, "ذخیره", () => { attachNumFmt($("modalMsg")); });
@@ -1713,30 +1995,31 @@ function editItem(itemId) {
 /* ==========================================================================
    تاریخچه
    ========================================================================== */
-function historyCard(h) {
-  const it = DB.items.find(i => i.id === h.itemId);
-  if (!it) return "";
+function historyCard(h, refItem) {
+  const it = refItem || DB.items.find(i => i.id === h.itemId) || {};
   const sale = decryptSale(it.saleInfo || {}), exit = it.exitInfo || {};
   const customerLabel = sale.buyer ? `${sale.buyer} (${sale.buyerType || "مشتری"})` : (exit.to || "-");
+  const extra = h.extra || {};
   return `<div class="history-item">
     <div>
       <span class="row-kv"><b>رخداد:</b> ${actionLabel(h.action)}</span>
       <span class="row-kv"><b>تاریخ:</b> ${esc(h.date) || "-"}</span>
-      <span class="row-kv"><b>شعبه:</b> ${esc(h.branch) || esc(it.branch)}</span>
+      <span class="row-kv"><b>شعبه:</b> ${esc(h.branch) || esc(it.branch) || "-"}</span>
       <span class="row-kv"><b>از→به:</b> ${esc(h.fromStatus) || "-"} → ${esc(h.toStatus) || "-"}</span>
       ${h.by ? `<span class="row-kv"><b>کاربر:</b> ${esc(h.by)}</span>` : ""}
     </div>
     <div>
-      <span class="row-kv"><b>موتور:</b> ${esc(it.company)} ${esc(it.name)}</span>
+      <span class="row-kv"><b>موتور:</b> ${esc(it.company) || "-"} ${esc(it.name) || ""}</span>
+      <span class="row-kv"><b>شاسی:</b> ${esc(it.chassis) || "-"}</span>
       <span class="row-kv"><b>پلاک:</b> ${esc(it.plate) || "-"}</span>
-      <span class="row-kv"><b>مشتری/همکار:</b> ${esc(customerLabel)}</span>
-      <span class="row-kv"><b>قولنامه:</b> ${esc(sale.receipt || exit.receipt) || "-"}</span>
+      <span class="row-kv"><b>مشتری/همکار:</b> ${esc(extra.buyer || customerLabel) || "-"}</span>
+      ${extra.returnReason ? `<span class="row-kv"><b>دلیل برگشت:</b> ${esc(extra.returnReason)}</span>` : ""}
     </div>
     <div class="meta">${esc(h.note) || ""}</div>
   </div>`;
 }
 function actionLabel(a) {
-  return { in: "📥 ورود", sale: "💰 فروش", transfer: "🔀 انتقال", return: "🔄 برگشتی", status: "🔄 تغییر وضعیت", edit: "✏️ ویرایش" }[a] || a;
+  return { in: "📥 ورود", sale: "💰 فروش", transfer: "🔀 انتقال", return: "🔄 برگشتی", status: "🔄 تغییر وضعیت", edit: "✏️ ویرایش", reserve: "🔖 رزرو", exit: "📤 خروج", delete: "🗑️ حذف" }[a] || a;
 }
 function statusBadge(s) {
   const map = { "موجود": "b-in", "رزرو": "b-trust", "فروش": "b-sale", "خروج": "b-out", "برگشتی": "b-return" };
@@ -1748,9 +2031,9 @@ function payBadge(s) {
 }
 function showHistory(itemId) {
   const item = DB.items.find(i => i.id === itemId);
-  if (!item) return;
   const hist = DB.history.filter(h => h.itemId === itemId).sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
-  const head = `<div class="info-grid">
+  const ref = item || (hist[0] ? Object.assign({ branch: hist[0].branch }, (hist.find(h => h.plate) || {})) : {});
+  const head = item ? `<div class="info-grid">
     <div><b>نام موتور:</b> ${esc(item.company)} ${esc(item.name)}</div>
     <div><b>شاسی:</b> ${esc(item.chassis) || "-"}</div>
     <div><b>موتور:</b> ${esc(item.engine) || "-"}</div>
@@ -1761,10 +2044,26 @@ function showHistory(itemId) {
     <div><b>بارنامه:</b> ${esc(item.barname) || "-"}</div>
     <div><b>قیمت خرید:</b> ${money(item.price)}</div>
     <div><b>وضعیت فعلی:</b> ${statusBadge(item.status)}</div>
+    ${item.returnCount ? `<div><b>تعداد برگشتی:</b> ${item.returnCount} بار</div>` : ""}
     ${item.createdBy ? `<div><b>ثبت‌کننده:</b> ${esc(item.createdBy)}</div>` : ""}
-  </div>`;
-  const body = hist.length ? hist.map(h => historyCard(h)).join("") : '<div class="empty">تاریخچه‌ای ثبت نشده</div>';
-  openModal(`📜 تاریخچه: ${esc(item.company)} ${esc(item.name)}`, head + body, null);
+  </div>` : `<div class="alert red">🗑️ این موتور حذف شده است، اما تاریخچه آن برای همیشه حفظ شده.</div>`;
+  const body = hist.length ? hist.map(h => historyCard(h, item)).join("") : '<div class="empty">تاریخچه‌ای ثبت نشده</div>';
+  openModal(`📜 تاریخچه: ${esc((item && item.company) || "")} ${esc((item && item.name) || "")}`, head + body, null);
+}
+/* آرشیو کامل تاریخچه همه موتورها (شامل حذف‌شده‌ها) */
+function openHistoryArchive() {
+  const q = "";
+  const hist = [...DB.history].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  const byAction = {};
+  hist.forEach(h => { byAction[h.action] = (byAction[h.action] || 0) + 1; });
+  const stats = Object.entries(byAction).map(([a, n]) => `<span class="badge b-in">${actionLabel(a)}: ${n}</span>`).join(" ");
+  const body = hist.length
+    ? hist.slice(0, 500).map(h => historyCard(h)).join("")
+    : '<div class="empty">تاریخچه‌ای ثبت نشده</div>';
+  openModal("📚 آرشیو کامل تاریخچه",
+    `<div style="margin-bottom:10px;">${stats}</div>
+     <p class="helper">همه رخدادها (ورود، رزرو، فروش، خروج، برگشتی، ویرایش، حذف) برای همیشه در سرور حفظ می‌شوند. ${hist.length > 500 ? "۵۰۰ مورد آخر نمایش داده می‌شود." : ""}</p>
+     ${body}`, null);
 }
 
 /* ==========================================================================
@@ -1773,11 +2072,12 @@ function showHistory(itemId) {
 function deleteItem(itemId) {
   const it = DB.items.find(i => i.id === itemId);
   if (!it) return;
-  openModal("حذف موتور", `آیا موتور <b>${esc(it.company)} ${esc(it.name)}</b> (شاسی: ${esc(it.chassis) || "-"}) حذف شود؟<br>تاریخچه مرتبط نیز پاک می‌شود.`, () => {
+  openModal("حذف موتور", `آیا موتور <b>${esc(it.company)} ${esc(it.name)}</b> (شاسی: ${esc(it.chassis) || "-"}) حذف شود؟<br><span style="color:#2a5298;">تاریخچه این موتور برای همیشه حفظ می‌شود.</span>`, () => {
+    // ثبت رخداد حذف در تاریخچه پیش از حذف
+    pushHistory({ itemId, branch: it.branch, action: "delete", fromStatus: it.status, toStatus: null, date: todayJalali(), note: `حذف موتور ${it.company} ${it.name} توسط ${userTag()}`, by: userTag() });
     DB.items = DB.items.filter(i => i.id !== itemId);
-    DB.history = DB.history.filter(h => h.itemId !== itemId);
     if (typeof markDeletedItem === "function") markDeletedItem(itemId);
-    save(); closeModal(); toast("🗑️ حذف شد");
+    save(); closeModal(); toast("🗑️ حذف شد (تاریخچه حفظ شد)");
     renderInventory(); renderCycle(); renderDashboard(); renderBranchTabs();
   }, "حذف");
 }
@@ -1830,31 +2130,27 @@ function renderInventory() {
 
   if (!rows.length) { $("invTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
 
+  const cols = getCols("inv");
+  const cellVal = (en, k) => {
+    switch (k) {
+      case "price": return money(en.price);
+      case "status": return statusBadge(en.status);
+      case "group": return en.group ? `<span class="badge b-in">${esc(groupLabel(en.group))}</span>` : "-";
+      case "dateIn": return esc(en.dateIn) || "-";
+      case "chassis": case "engine": return `<span style="font-size:10px;direction:ltr;">${esc(en[k]) || "-"}</span>`;
+      case "plate": return `<span style="direction:ltr;">${esc(en.plate) || "-"}</span>`;
+      default: return esc(en[k]) || "-";
+    }
+  };
   $("invTable").innerHTML = `<div style="overflow-x:auto;"><table>
     <thead><tr>
       <th class="no-sort">#</th>
-      <th onclick="clickSort(this,'inv','branch')">شعبه${sortIndicator(uiState.sort.inv, "branch")}</th>
-      <th onclick="clickSort(this,'inv','company')">شرکت${sortIndicator(uiState.sort.inv, "company")}</th>
-      <th onclick="clickSort(this,'inv','name')">نام موتور${sortIndicator(uiState.sort.inv, "name")}</th>
-      <th class="no-sort">رنگ</th>
-      <th class="no-sort">شاسی</th>
-      <th class="no-sort">پلاک</th>
-      <th class="no-sort">تامین‌کننده</th>
-      <th onclick="clickSort(this,'inv','price')">قیمت خرید${sortIndicator(uiState.sort.inv, "price")}</th>
-      <th class="no-sort">وضعیت</th>
+      ${cols.map(c => `<th class="no-sort">${esc(c.label)}</th>`).join("")}
       <th class="no-sort">عملیات</th>
     </tr></thead><tbody>` +
     rows.map((en, i) => `<tr>
       <td>${i + 1}</td>
-      <td>${esc(en.branch)}</td>
-      <td>${esc(en.company)}</td>
-      <td>${esc(en.name)}</td>
-      <td>${esc(en.color) || "-"}</td>
-      <td style="font-size:10px;direction:ltr;">${esc(en.chassis)}</td>
-      <td style="direction:ltr;">${esc(en.plate) || "-"}</td>
-      <td>${esc(en.supplier) || "-"}</td>
-      <td>${money(en.price)}</td>
-      <td>${statusBadge(en.status)}</td>
+      ${cols.map(c => `<td>${cellVal(en, c.k)}</td>`).join("")}
       <td style="white-space:nowrap;">
         <button class="btn small success" onclick="editItem('${en.id}')">✏️</button>
         <button class="btn small" onclick="showHistory('${en.id}')">📜</button>
@@ -1967,7 +2263,11 @@ function renderDashboard() {
   items.filter(i => i.status === STATUS.IN).forEach(i => { const k = i.company + "|" + i.name; lowGroups[k] = (lowGroups[k] || 0) + 1; });
   const lows = Object.entries(lowGroups).filter(([, c]) => c <= (DB.settings.lowStock || 3));
   if (lows.length) alerts.push(`<div class="alert red">⚠️ <b>${lows.length} مدل</b> موجودی کم دارد: ${lows.map(([k, c]) => `${esc(k.split("|").join(" "))} (${c})`).join("، ")}</div>`);
+  // هشدار گروه‌های کم‌موجود
+  const gWarns = groupsStatus().filter(x => x.state === "low" || x.state === "empty");
+  if (gWarns.length) alerts.push(`<div class="alert red">🧩 <b>هشدار گروه‌ها:</b> ${gWarns.map(x => `${esc(x.g.label)} (${x.count}/${x.g.min})`).join("، ")}</div>`);
   $("dashAlerts").innerHTML = alerts.join("");
+  renderGroupCards();
 
   renderSalesChart(items);
   renderBranchCards();
@@ -1977,6 +2277,18 @@ function renderDashboard() {
   if (isManager()) recent = [...DB.history].slice(-10).reverse();
   else recent = DB.history.filter(h => h.branch === activeBranch).slice(-10).reverse();
   $("recentLog").innerHTML = recent.length ? recent.map(h => historyCard(h)).join("") : '<div class="empty">رخدادی ثبت نشده</div>';
+  if (typeof checkGroupAlerts === "function") checkGroupAlerts();
+}
+
+function renderGroupCards() {
+  const el = $("groupCards"); if (!el) return;
+  const st = groupsStatus();
+  el.innerHTML = st.map(x => {
+    const cls = x.state === "empty" ? "red" : x.state === "low" ? "orange" : x.state === "high" ? "purple" : "green";
+    const badge = x.state === "empty" ? "🔴 تمام‌شده" : x.state === "low" ? "⚠️ کم" : x.state === "high" ? "↑ سقف" : "✅";
+    const lim = `حداقل ${x.g.min || 0}${x.g.max ? " / حداکثر " + x.g.max : ""}`;
+    return `<div class="stat-card ${cls}"><div class="num">${x.count}</div><div class="lbl">${esc(x.g.label)} — ${badge}<br><span style="font-size:10px;opacity:.8;">${lim}</span></div></div>`;
+  }).join("");
 }
 
 function renderBranchCards() {
@@ -2446,10 +2758,19 @@ function itemToRow(it) {
     exit_info: it.exitInfo || null,
     transfers: it.transfers || null,
     created_by: it.createdBy || null,
+    // همه فیلدهای غنی (رنگ، حجم، تیپ، سال، مشخصات، ...) در extra حفظ می‌شوند
+    extra: {
+      volume: it.volume || "", type: it.type || "", color: it.color || "", year: it.year || "",
+      payStatus: it.payStatus || "", prepay: it.prepay || 0, specs: it.specs || "",
+      note: it.note || "", supplierPhone: it.supplierPhone || "",
+      group: it.group || "", returnCount: it.returnCount || 0,
+      lastReturn: it.lastReturn || null, reserveInfo: it.reserveInfo || null
+    },
     updated_at: new Date().toISOString()
   };
 }
 function rowToItem(r) {
+  const ex = r.extra || {};
   return {
     id: r.id, branch: r.branch, barname: r.barname,
     dateIn: r.date, supplier: r.supplier, receiver: r.receiver,
@@ -2457,9 +2778,34 @@ function rowToItem(r) {
     engine: r.engine, plate: r.plate, qty: r.qty, price: r.price,
     status: r.status, saleInfo: r.sale, exitInfo: r.exit_info,
     createdBy: r.created_by, updatedAt: r.updated_at,
-    // فیلدهای غنی که در DB محلی هستند از localStorage تکمیل می‌شوند
-    volume: "", type: "", color: "", year: "", payStatus: "", prepay: 0,
-    specs: "", note: "", supplierPhone: ""
+    // فیلدهای غنی از extra (یا خالی برای داده‌های قدیمی)
+    volume: ex.volume || "", type: ex.type || "", color: ex.color || "", year: ex.year || "",
+    payStatus: ex.payStatus || "", prepay: ex.prepay || 0, specs: ex.specs || "",
+    note: ex.note || "", supplierPhone: ex.supplierPhone || "",
+    group: ex.group || "", returnCount: ex.returnCount || 0,
+    lastReturn: ex.lastReturn || null, reserveInfo: ex.reserveInfo || null
+  };
+}
+/* ---------- نگاشت ردیف ↔ تاریخچه ---------- */
+function historyToRow(h) {
+  return {
+    id: h.id,
+    item_id: h.itemId || null,
+    branch: h.branch || null,
+    action: h.action || null,
+    from_status: h.fromStatus || null,
+    to_status: h.toStatus || null,
+    date: h.date || null,
+    note: h.note || null,
+    by_user: h.by || null,
+    extra: h.extra || null
+  };
+}
+function rowToHistory(r) {
+  return {
+    id: r.id, itemId: r.item_id, branch: r.branch,
+    action: r.action, fromStatus: r.from_status, toStatus: r.to_status,
+    date: r.date, note: r.note, by: r.by_user, extra: r.extra
   };
 }
 
@@ -2484,6 +2830,14 @@ async function supaLoadAll() {
   // آیتم‌ها
   const items = await supaFetch("items?select=*&order=updated_at.asc");
   if (items) DB.items = items.map(rowToItem);
+  // تاریخچه (همیشه حفظ می‌شود — هیچ‌وقت پاک نمی‌شود)
+  const hist = await supaFetch("history?select=*&order=created_at.asc&limit=5000");
+  if (hist) DB.history = hist.map(rowToHistory);
+  // گروه‌های موجودی
+  try {
+    const grp = await supaFetch("groups?select=*&order=sort_order.asc");
+    if (grp && grp.length) DB.groups = grp.map(g => ({ key: g.key, label: g.label, min: g.min_qty || 0, max: g.max_qty || 0 }));
+  } catch (e) { /* اگر جدول نبود، پیش‌فرض */ }
   // لاگ (آخرین ۲۰۰)
   const acts = await supaFetch("activity?select=*&order=ts.desc&limit=200");
   if (acts) DB.activity = acts.map(a => ({ id: a.id, at: a.ts, date: a.date || "", branch: a.branch, action: a.action, detail: a.detail }));
@@ -2538,6 +2892,15 @@ async function supaDeleteItem(id) {
 async function supaDeleteUser(username) {
   await supaFetch("app_users?username=eq." + encodeURIComponent(username), { method: "DELETE" });
 }
+/* تاریخچه فقط append می‌شود — هرگز حذف/جایگزین نمی‌شود */
+async function supaPushHistory(rows) {
+  if (!rows.length) return;
+  await supaFetch("history?on_conflict=id", {
+    method: "POST",
+    headers: Object.assign({}, SUPA_HEADERS, { "Prefer": "resolution=ignore-duplicates" }),
+    body: JSON.stringify(rows.map(historyToRow))
+  });
+}
 
 /* ---------- صف ارسال (debounce) ---------- */
 const _dirtyItems = new Set();
@@ -2582,6 +2945,8 @@ async function supaFlush() {
 
     if (_dirtySettings) { _dirtySettings = false; await supaPushSettings(); }
 
+    if (typeof _pendingHistory !== "undefined" && _pendingHistory.length) { const h = _pendingHistory.splice(0); await supaPushHistory(h); }
+
     if (_pendingActivity.length) { const a = _pendingActivity.splice(0); await supaPushActivity(a); }
   } catch (e) {
     console.warn("supaFlush", e);
@@ -2624,6 +2989,18 @@ function startServerSync() {
   if (!SUPA_ON) { setServerBadge("off", "⚪ آفلاین"); return; }
   clearInterval(_supaPullTimer);
   _supaPullTimer = setInterval(supaPullChanges, 5000);
+}
+
+/* ---------- گروه‌های موجودی ---------- */
+async function supaSaveGroups() {
+  if (!SUPA_ON || !supaOnline) return;
+  try {
+    await supaFetch("groups?on_conflict=key", {
+      method: "POST",
+      headers: Object.assign({}, SUPA_HEADERS, { "Prefer": "resolution=merge-duplicates" }),
+      body: JSON.stringify((DB.groups || []).map((g, i) => ({ key: g.key, label: g.label, min_qty: g.min || 0, max_qty: g.max || 0, sort_order: i + 1 })))
+    });
+  } catch (e) { console.warn("supaSaveGroups", e); }
 }
 
 /* ---------- اتصال ---------- */
@@ -2748,6 +3125,32 @@ function renderSettings() {
       <button class="btn small success" onclick="renameBranch('${esc(b)}')">✏️ نام</button>
       <button class="btn small danger" onclick="removeBranch('${esc(b)}')" ${used ? "disabled title='شعبه دارای داده است'" : ""}>🗑️</button></span></div>`;
   }).join("");
+  renderGroups();
+}
+/* مدیریت گروه‌های موجودی */
+function renderGroups() {
+  const el = $("grpManage"); if (!el) return;
+  if (!canManage()) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div style="overflow-x:auto;"><table><thead><tr>
+      <th>گروه</th><th>موجودی فعلی</th><th>حداقل</th><th>حداکثر</th></tr></thead><tbody>` +
+    groupsList().map((g, i) => {
+      const cnt = groupStock(g.key, activeBranch);
+      const low = g.min && cnt <= g.min;
+      return `<tr>
+        <td><b>${esc(g.label)}</b></td>
+        <td>${low ? `<span class="badge b-return">${cnt}</span>` : `<span class="badge b-in">${cnt}</span>`}</td>
+        <td><input type="number" min="0" value="${g.min || 0}" style="width:80px;" onchange="setGroupLimit(${i},'min',this.value)"></td>
+        <td><input type="number" min="0" value="${g.max || 0}" style="width:80px;" onchange="setGroupLimit(${i},'max',this.value)"></td>
+      </tr>`;
+    }).join("") + "</tbody></table></div>";
+}
+function setGroupLimit(idx, field, val) {
+  if (!DB.groups[idx]) return;
+  DB.groups[idx][field] = Math.max(0, +val || 0);
+  save();
+  if (typeof supaSaveGroups === "function") supaSaveGroups();
+  renderGroups();
+  toast("✅ ذخیره شد");
 }
 function saveSettings() {
   const name = $("set_company").value.trim();
