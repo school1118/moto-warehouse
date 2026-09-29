@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>سیستم جامع انبارداری چندشعبه‌ای بنگاه موتور</title>
+<title>سیستم جامع انبارداری چندشعبه‌ای جهلن موتور رئیس علی</title>
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
 <style>
   * { box-sizing: border-box; font-family: 'Vazirmatn', Tahoma, sans-serif; }
@@ -111,9 +111,12 @@
   .dp-wrap { position:relative; }
   .dp-input { cursor:pointer; background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%232a5298' viewBox='0 0 16 16'><path d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z'/></svg>") no-repeat left 8px center; padding-left:32px; }
   html.dark .dp-input{ background-color:#0f172a; }
-  .dp-pop { position:absolute; top:100%; right:0; z-index:50; background:#fff; border:1px solid #ccd; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.15); padding:10px; display:none; width:250px; margin-top:4px; }
+  .dp-pop { position:absolute; top:100%; right:0; z-index:50; background:#fff; border:1px solid #ccd; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.15); padding:10px; display:none; width:280px; margin-top:4px; }
   html.dark .dp-pop{ background:#1e293b; border-color:#334155; }
   .dp-pop.active { display:block; }
+  .dp-selects { display:grid; grid-template-columns:1fr 1.4fr 1.1fr; gap:4px; margin-bottom:8px; }
+  .dp-selects select { padding:5px 3px; border:1px solid #ccd; border-radius:6px; font-size:12px; background:#fff; cursor:pointer; }
+  html.dark .dp-selects select { background:#0f172a; color:#e2e8f0; border-color:#334155; }
   .dp-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-weight:700; }
   .dp-head button { background:#eef; border:none; border-radius:4px; cursor:pointer; padding:4px 10px; font-size:14px; }
   .dp-head button:hover { background:#dde; }
@@ -182,7 +185,7 @@
 <body>
 
 <header>
-  <h1>🏍️ سیستم جامع انبارداری چندشعبه‌ای بنگاه موتور</h1>
+  <h1>🏍️ سیستم جامع انبارداری چندشعبه‌ای جهان موتور رئیس علی</h1>
   <div class="head-actions">
     <span class="stats" id="headerStats">در حال بارگذاری...</span>
     <span class="stats" id="syncBadge" title="وضعیت اتصال زنده">⚪ آفلاین</span>
@@ -256,6 +259,12 @@
    ========================================================================== */
 
 /* ---------- تنظیمات پیش‌فرض ---------- */
+const DEFAULT_COMPANIES = [
+  "بهرو سیکلت", "توسن محرکه شرق", "ثاقب خودرو", "جهان رو", "سهند سیکلت سپاهان",
+  "سیکلت سازان آسیا", "شاهین موتور قم", "کبیر موتور کارزون", "متین خودرو",
+  "نیکران موتور پاسارگاد", "نیکتاز موتور", "نیرو موتور", "هانی موتور البرز",
+  "همراه سیکلت جهان", "هندا", "یکتاز سیکلت کویر", "یاماها نیرو موتور"
+];
 const DEFAULT_SETTINGS = {
   branches: ["مرکزی", "شعبه ۱", "شعبه ۲", "شعبه ۳"],
   lowStock: 3,
@@ -284,6 +293,7 @@ let DB = {
     { key: "street", label: "استریت", min: 1, max: 0 },
     { key: "mini", label: "اسکوتر مینی", min: 1, max: 0 }
   ],
+  companies: [...DEFAULT_COMPANIES],
   settings: { ...DEFAULT_SETTINGS }
 };
 let activeBranch = DEFAULT_SETTINGS.branches[0];
@@ -401,6 +411,7 @@ function load() {
         items: d.items || [], history: d.history || [],
         activity: d.activity || [], users: d.users || [],
         groups: d.groups || DB.groups,
+        companies: d.companies || [...DEFAULT_COMPANIES],
         settings: Object.assign({}, DEFAULT_SETTINGS, d.settings || {})
       };
     } catch (e) { console.warn("bad data", e); }
@@ -756,7 +767,7 @@ async function exportSessionKey() {
   return new Uint8Array(raw);
 }
 
-/* ---------- انتخابگر تاریخ شمسی ---------- */
+/* ---------- انتخابگر تاریخ شمسی (روز/ماه/سال جداگانه) ---------- */
 function buildJalaliPicker(input) {
   if (input.dataset.dp) return;
   input.dataset.dp = "1";
@@ -778,11 +789,33 @@ function buildJalaliPicker(input) {
     const dow = new Date(gy, gm - 1, gd).getDay();
     return (dow + 1) % 7;
   }
+  function setVal(y, m, d) {
+    const days = jalaliMonthDays(y, m);
+    if (d > days) d = days;
+    input.value = `${y}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}`;
+  }
   function render() {
     const days = jalaliMonthDays(viewJy, viewJm);
     const first = firstDow(viewJy, viewJm);
     const sel = parseVal();
-    let html = `<div class="dp-head">
+    const selD = sel && sel.y === viewJy && sel.m === viewJm ? sel.d : "";
+    // لیست سال‌ها (۲۰ سال قبل تا ۵ سال بعد)
+    const years = [];
+    for (let y = tjy - 20; y <= tjy + 5; y++) years.push(y);
+    let html = `<div class="dp-selects">
+      <select class="dp-sel" data-part="day">
+        <option value="">روز</option>
+        ${Array.from({ length: days }, (_, i) => i + 1).map(d =>
+          `<option value="${d}" ${selD === d ? "selected" : ""}>${d}</option>`).join("")}
+      </select>
+      <select class="dp-sel" data-part="month">
+        ${FA_MONTHS.map((m, i) => `<option value="${i + 1}" ${viewJm === i + 1 ? "selected" : ""}>${m}</option>`).join("")}
+      </select>
+      <select class="dp-sel" data-part="year">
+        ${years.map(y => `<option value="${y}" ${viewJy === y ? "selected" : ""}>${y}</option>`).join("")}
+      </select>
+    </div>
+    <div class="dp-head">
       <button type="button" data-act="prevY">«</button>
       <button type="button" data-act="prevM">‹</button>
       <span>${FA_MONTHS[viewJm - 1]} ${viewJy}</span>
@@ -798,6 +831,27 @@ function buildJalaliPicker(input) {
     }
     html += `</div><div class="dp-foot">امروز: ${today} — <a href="#" data-act="today">انتخاب امروز</a></div>`;
     pop.innerHTML = html;
+    // انتخاب جداگانه روز/ماه/سال
+    pop.querySelector('[data-part="day"]').onchange = e => {
+      e.stopPropagation();
+      const d = Number(e.target.value) || 1;
+      setVal(viewJy, viewJm, d);
+      input.dispatchEvent(new Event("change"));
+    };
+    pop.querySelector('[data-part="month"]').onchange = e => {
+      e.stopPropagation();
+      viewJm = Number(e.target.value) || 1;
+      const d = parseVal() ? parseVal().d : 1;
+      setVal(viewJy, viewJm, d);
+      render(); input.dispatchEvent(new Event("change"));
+    };
+    pop.querySelector('[data-part="year"]').onchange = e => {
+      e.stopPropagation();
+      viewJy = Number(e.target.value) || tjy;
+      const d = parseVal() ? parseVal().d : 1;
+      setVal(viewJy, viewJm, d);
+      render(); input.dispatchEvent(new Event("change"));
+    };
     pop.querySelectorAll("[data-act]").forEach(b => {
       b.onclick = e => {
         e.preventDefault(); e.stopPropagation();
@@ -1171,6 +1225,13 @@ function buildPanels() {
     <h3>🧩 گروه‌های موجودی (حداقل / حداکثر)</h3>
     <p class="helper">برای هر گروه، حداقل و حداکثر موجودی را تعیین کنید. وقتی موجودی به حداقل برسد، هشدار داده می‌شود. (حداکثر = ۰ یعنی بدون سقف)</p>
     <div id="grpManage"></div>
+    <h3>🏢 مدیریت شرکت‌ها</h3>
+    <p class="helper">شرکت‌های موجود در فهرست ورود کالا. می‌توانید اضافه، ویرایش یا حذف کنید.</p>
+    <div class="row-flex" style="gap:8px;margin-bottom:8px;">
+      <input id="new_company" placeholder="نام شرکت جدید" style="flex:1;">
+      <button class="btn success" onclick="addCompany()">➕ افزودن</button>
+    </div>
+    <div id="companyManage"></div>
   </div>
 
   <div class="panel" id="tab-backup">
@@ -1216,11 +1277,10 @@ function buildForms() {
     <div class="field"><label>نام تامین‌کننده *</label><input id="in_supplier" list="dl_suppliers"><datalist id="dl_suppliers"></datalist></div>
     <div class="field"><label>شماره تماس تامین‌کننده</label><input id="in_supplier_phone"></div>
     <div class="field"><label>تحویل‌گیرنده *</label><input id="in_receiver"></div>
-    <div class="field"><label>شرکت *</label><input id="in_company" list="dl_companies"><datalist id="dl_companies"></datalist></div>
+    <div class="field"><label>شرکت *</label><select id="in_company"></select></div>
     <div class="field"><label>گروه</label><select id="in_group"></select></div>
     <div class="field"><label>نام موتور *</label><input id="in_name"></div>
     <div class="field"><label>حجم</label><input id="in_volume" placeholder="مثلا 125cc"></div>
-    <div class="field"><label>تیپ</label><input id="in_type"></div>
     <div class="field"><label>رنگ</label><input id="in_color"></div>
     <div class="field"><label>سال ساخت</label><input id="in_year"></div>
     <div class="field"><label>شماره شاسی *</label><input id="in_chassis" style="letter-spacing:1px;direction:ltr;text-align:left;"></div>
@@ -1229,7 +1289,7 @@ function buildForms() {
     <div class="field"><label>قیمت خرید (تومان) *</label><input id="in_price" class="num-fmt" placeholder="300,000,000" inputmode="numeric"></div>
     <div class="field"><label>وضعیت خرید *</label>
       <select id="in_payStatus">
-        <option value="نقدی">نقدی</option><option value="چک">چک</option>
+        <option value="نقدی">نقدی</option><option value="چک مشتری">چک مشتری</option>
         <option value="اقساط">اقساط</option><option value="چکی اقساطی">چکی اقساطی</option>
         <option value="معاوضه">معاوضه</option><option value="امانی">امانی</option>
       </select>
@@ -1242,7 +1302,7 @@ function buildForms() {
 
   $("outForm").innerHTML = `
     <div class="field"><label>شماره قولنامه / رسید *</label><input id="out_receipt"></div>
-    <div class="field"><label>تاریخ (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="out_date" readonly></div></div>
+    <div class="field"><label>تاریخ فروش(شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="out_date" readonly></div></div>
     <div class="field"><label>نوع خروج *</label>
       <select id="out_type" onchange="toggleOutType()">
         <option value="sale">فروش به مشتری/همکار</option>
@@ -1362,12 +1422,12 @@ function setupNav() {
 }
 
 function populateDatalists() {
-  const companies = [...new Set(DB.items.map(i => i.company).filter(Boolean))];
   const suppliers = [...new Set(DB.items.map(i => i.supplier).filter(Boolean))];
   const buyers = [...new Set(DB.items.map(i => i.saleInfo && i.saleInfo.buyer).filter(Boolean))];
   const set = (id, arr) => { const el = $(id); if (el) el.innerHTML = arr.map(a => `<option value="${esc(a)}"></option>`).join(""); };
-  set("dl_companies", companies); set("dl_suppliers", suppliers); set("dl_buyers", buyers);
+  set("dl_suppliers", suppliers); set("dl_buyers", buyers);
   fillGroupSelect();
+  fillCompanySelect();
 }
 /* پر کردن سلکت گروه‌ها */
 function fillGroupSelect() {
@@ -1375,6 +1435,15 @@ function fillGroupSelect() {
   const cur = el.value;
   el.innerHTML = '<option value="">— بدون گروه —</option>' +
     groupsList().map(g => `<option value="${esc(g.key)}">${esc(g.label)}</option>`).join("");
+  if (cur) el.value = cur;
+}
+/* پر کردن سلکت شرکت‌ها */
+function companiesList() { return DB.companies && DB.companies.length ? DB.companies : [...DEFAULT_COMPANIES]; }
+function fillCompanySelect() {
+  const el = $("in_company"); if (!el) return;
+  const cur = el.value;
+  el.innerHTML = '<option value="">— انتخاب شرکت —</option>' +
+    companiesList().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
   if (cur) el.value = cur;
 }
 /* ==========================================================================
@@ -1448,7 +1517,7 @@ function pushItems(branch, d) {
       company: d.company, name: $("in_name").value.trim(),
       group: $("in_group") ? $("in_group").value : "",
       volume: $("in_volume").value.trim(),
-      type: $("in_type").value.trim(),
+      type: $("in_type") ? $("in_type").value.trim() : "",
       color: $("in_color").value.trim(),
       year: $("in_year").value.trim(),
       chassis: d.qty > 1 ? `${d.chassis}-${i + 1}` : d.chassis,
@@ -1548,7 +1617,7 @@ async function addExit() {
 
   let ok = true;
   ok &= validateField($("out_receipt"), receipt, "شماره قولنامه/رسید الزامی است");
-  ok &= validateField($("out_date"), date, "تاریخ الزامی است");
+  ok &= validateField($("out_date"), date, "تاریخ فروش الزامی است");
   ok &= validateField($("out_item"), itemId, "یک موتور انتخاب کنید");
   const item = DB.items.find(e => e.id === itemId);
   if (item && item.status !== STATUS.IN) { validateField($("out_item"), false, "موتور در وضعیت موجود نیست"); ok = false; }
@@ -1930,7 +1999,7 @@ function editItem(itemId) {
   const html = `
     <h4 style="color:#2a5298;margin:12px 0 6px;">مشخصات موتور</h4>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <div class="field"><label>شرکت</label><input id="e_company" value="${esc(it.company)}"></div>
+      <div class="field"><label>شرکت</label><select id="e_company">${companiesList().map(c => `<option value="${esc(c)}" ${it.company === c ? "selected" : ""}>${esc(c)}</option>`).join("")}${companiesList().includes(it.company) ? "" : `<option value="${esc(it.company)}" selected>${esc(it.company)}</option>`}</select></div>
       <div class="field"><label>گروه</label><select id="e_group">${'<option value="">— بدون گروه —</option>' + groupsList().map(g => `<option value="${esc(g.key)}" ${it.group === g.key ? "selected" : ""}>${esc(g.label)}</option>`).join("")}</select></div>
       <div class="field"><label>نام موتور</label><input id="e_name" value="${esc(it.name)}"></div>
       <div class="field"><label>حجم</label><input id="e_volume" value="${esc(it.volume)}"></div>
@@ -2815,6 +2884,7 @@ async function supaLoadAll() {
   const s = await supaFetch("settings?select=*&id=eq.main");
   if (s && s[0] && s[0].data && Object.keys(s[0].data).length) {
     DB.settings = Object.assign({}, DEFAULT_SETTINGS, s[0].data);
+    if (Array.isArray(s[0].data.companies) && s[0].data.companies.length) DB.companies = s[0].data.companies;
   }
   // کاربران
   const us = await supaFetch("app_users?select=*");
@@ -3003,6 +3073,15 @@ async function supaSaveGroups() {
   } catch (e) { console.warn("supaSaveGroups", e); }
 }
 
+/* ---------- شرکت‌ها (در تنظیمات ذخیره می‌شوند) ---------- */
+async function supaSaveCompanies() {
+  if (!SUPA_ON || !supaOnline) return;
+  try {
+    DB.settings.companies = companiesList();
+    await supaPushSettings();
+  } catch (e) { console.warn("supaSaveCompanies", e); }
+}
+
 /* ---------- اتصال ---------- */
 async function supaInit() {
   if (!SUPA_ON) return false;
@@ -3126,6 +3205,51 @@ function renderSettings() {
       <button class="btn small danger" onclick="removeBranch('${esc(b)}')" ${used ? "disabled title='شعبه دارای داده است'" : ""}>🗑️</button></span></div>`;
   }).join("");
   renderGroups();
+  renderCompanies();
+}
+/* مدیریت شرکت‌ها */
+function renderCompanies() {
+  const el = $("companyManage"); if (!el) return;
+  if (!canManage()) { el.innerHTML = ""; return; }
+  const list = companiesList();
+  el.innerHTML = list.map((c, i) => `<div class="list-row"><span>🏢 <b>${esc(c)}</b></span>
+    <span><button class="btn small success" onclick="editCompany(${i})">✏️</button>
+    <button class="btn small danger" onclick="deleteCompany(${i})">🗑️</button></span></div>`).join("");
+}
+function addCompany() {
+  const el = $("new_company"); if (!el) return;
+  const name = el.value.trim();
+  if (!name) { toast("نام شرکت را وارد کنید", false); return; }
+  if (companiesList().includes(name)) { toast("این شرکت قبلاً وجود دارد", false); return; }
+  DB.companies = companiesList().concat([name]);
+  el.value = "";
+  save(); renderCompanies(); fillCompanySelect(); toast("✅ شرکت اضافه شد");
+}
+function editCompany(i) {
+  const list = companiesList();
+  const old = list[i]; if (old == null) return;
+  openModal("✏️ ویرایش شرکت", `<div class="field"><label>نام جدید</label><input id="ec_name" value="${esc(old)}"></div>`, () => {
+    const nn = $("ec_name").value.trim();
+    if (!nn) return;
+    list[i] = nn;
+    DB.companies = list;
+    DB.items.forEach(it => { if (it.company === old) it.company = nn; });
+    save({ items: DB.items.filter(it => it.company === nn).map(it => it.id) });
+    if (typeof supaSaveCompanies === "function") supaSaveCompanies();
+    closeModal(); renderCompanies(); fillCompanySelect(); toast("✅ ویرایش شد");
+  }, "ذخیره", () => { const e = $("ec_name"); if (e) e.focus(); });
+}
+function deleteCompany(i) {
+  const list = companiesList();
+  const name = list[i]; if (name == null) return;
+  const used = DB.items.some(it => it.company === name);
+  openModal("حذف شرکت", `شرکت <b>${esc(name)}</b> از فهرست حذف شود؟${used ? "<br><span style='color:#b91c1c;'>⚠️ برخی موتورها این شرکت را دارند؛ نام آن‌ها تغییری نمی‌کند.</span>" : ""}`, () => {
+    list.splice(i, 1);
+    DB.companies = list;
+    save();
+    if (typeof supaSaveCompanies === "function") supaSaveCompanies();
+    closeModal(); renderCompanies(); fillCompanySelect(); toast("🗑️ حذف شد");
+  }, "حذف");
 }
 /* مدیریت گروه‌های موجودی */
 function renderGroups() {
