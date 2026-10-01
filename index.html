@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>سیستم جامع انبارداری چندشعبه‌ای جهان موتور رئیس علی</title>
+<title>سیستم جامع انبارداری چندشعبه‌ای بنگاه موتور</title>
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
 <style>
   * { box-sizing: border-box; font-family: 'Vazirmatn', Tahoma, sans-serif; }
@@ -197,7 +197,7 @@
 <body>
 
 <header>
-  <h1>🏍️ سیستم جامع انبارداری چندشعبه‌ای جهان موتور رئیس علی</h1>
+  <h1>🏍️ سیستم جامع انبارداری چندشعبه‌ای بنگاه موتور</h1>
   <div class="head-actions">
     <span class="stats" id="headerStats">در حال بارگذاری...</span>
     <span class="stats" id="syncBadge" title="وضعیت اتصال زنده">⚪ آفلاین</span>
@@ -1514,7 +1514,7 @@ function buildForms() {
 
   $("outForm").innerHTML = `
     <div class="field"><label>شماره قولنامه / رسید *</label><input id="out_receipt"></div>
-    <input type="hidden" id="out_date">
+    <div class="field"><label>تاریخ فروش / خروج (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="out_date" inputmode="numeric" placeholder="1404/01/01 — یا از تقویم"></div></div>
     <div class="field"><label>نوع خروج *</label>
       <select id="out_type" onchange="toggleOutType()">
         <option value="sale">فروش به مشتری/همکار</option>
@@ -3003,10 +3003,16 @@ function showStocktakeReport(rec) {
 function openStocktakeHistory() {
   const list = DB.settings.stocktakes || [];
   if (!list.length) { toast("انبارگردانی ثبت نشده", false); return; }
-  const html = list.map(r => `<div class="list-row" style="cursor:pointer;" onclick="closeModal(); setTimeout(()=>showStocktakeReport(${JSON.stringify(JSON.stringify(r))}),100);">
+  const html = list.map((r, i) => `<div class="list-row" style="cursor:pointer;" onclick="openStocktakeByIndex(${i})">
     <span>📋 <b>${esc(r.date)}</b> — ${esc(r.branch)} <span class="helper">${esc(r.note)}</span></span>
-    <span>${r.diffs.length} مغایرت</span></div>`).join("");
+    <span>${Number(r.diffs && r.diffs.length) || 0} مغایرت</span></div>`).join("");
   openModal("📚 تاریخ انبارگردانی‌ها", html, null, "بستن");
+}
+function openStocktakeByIndex(i) {
+  const r = (DB.settings.stocktakes || [])[i];
+  if (!r) return;
+  closeModal();
+  setTimeout(() => showStocktakeReport(r), 100);
 }
 
 /* ============================ ۳) برگشت به تامین‌کننده ============================ */
@@ -3617,6 +3623,7 @@ const SUPA_HEADERS = {
 let supaOnline = false;
 let _supaPullTimer = null;
 let _supaPushTimer = null;
+let _supaRetryTimer = null;
 
 async function supaFetch(path, opts = {}) {
   const res = await fetch(SUPA_URL + "/rest/v1/" + path, Object.assign({ headers: SUPA_HEADERS }, opts));
@@ -3802,12 +3809,8 @@ async function supaPushActivity(rows) {
     })))
   });
 }
-async function supaDeleteItem(id) {
-  await supaFetch("items?id=eq." + encodeURIComponent(id), { method: "DELETE" });
-}
-async function supaDeleteUser(username) {
-  await supaFetch("app_users?username=eq." + encodeURIComponent(username), { method: "DELETE" });
-}
+/* توابع حذف واقعی حذف شدند — هیچ داده‌ای از سرور پاک نمی‌شود.
+   حذف فقط نرم است (extra.deleted = true) و قابل بازگردانی. */
 /* تاریخچه فقط append می‌شود — هرگز حذف/جایگزین نمی‌شود */
 async function supaPushHistory(rows) {
   if (!rows.length) return;
@@ -3843,34 +3846,53 @@ const _deletedItems = new Set();
 const _deletedUsers = new Set();
 
 function scheduleSupaPush() {
-  if (!SUPA_ON || !supaOnline) return;
+  if (!SUPA_ON) return;
+  // اگر آفلاین هستیم، علامت‌گذاری می‌کنیم تا هنگام بازگشت آنلاین ارسال شود
+  if (!supaOnline) { _needsResync = true; return; }
   clearTimeout(_supaPushTimer);
   _supaPushTimer = setTimeout(supaFlush, 400);
 }
+let _needsResync = false;
 async function supaFlush() {
   if (!SUPA_ON || !supaOnline) return;
   try {
     // موتورهای تغییر‌یافته + موتورهای حذف‌نرم‌شده (هر دو upsert می‌شوند، هرگز حذف نمی‌شوند)
     const dirtyIds = new Set([..._dirtyItems, ..._deletedItems]);
     const itemRows = DB.items.filter(i => dirtyIds.has(i.id));
-    _dirtyItems.clear();
-    _deletedItems.clear();
-    if (itemRows.length) await supaUpsertItems(itemRows);
+    if (itemRows.length) {
+      await supaUpsertItems(itemRows);
+      // فقط پس از موفقیت، پاک کن (اگر شکست خورد، برای تلاش مجدد بماند)
+      dirtyIds.forEach(id => { _dirtyItems.delete(id); _deletedItems.delete(id); });
+    }
 
     const userRows = DB.users.filter(u => _dirtyUsers.has(u.username));
-    _dirtyUsers.clear();
-    _newUsers.clear();
-    if (userRows.length) await supaUpsertUsers(userRows);
-    _deletedUsers.clear();
+    if (userRows.length) {
+      await supaUpsertUsers(userRows);
+      userRows.forEach(u => _dirtyUsers.delete(u.username));
+    }
 
-    if (_dirtySettings) { _dirtySettings = false; await supaPushSettings(); }
+    if (_dirtySettings) {
+      await supaPushSettings();
+      _dirtySettings = false;
+    }
 
-    if (typeof _pendingHistory !== "undefined" && _pendingHistory.length) { const h = _pendingHistory.splice(0); await supaPushHistory(h); }
+    if (typeof _pendingHistory !== "undefined" && _pendingHistory.length) {
+      const h = _pendingHistory.slice();
+      await supaPushHistory(h);
+      _pendingHistory.splice(0, h.length);
+    }
 
-    if (_pendingActivity.length) { const a = _pendingActivity.splice(0); await supaPushActivity(a); }
+    if (_pendingActivity.length) {
+      const a = _pendingActivity.slice();
+      await supaPushActivity(a);
+      _pendingActivity.splice(0, a.length);
+    }
   } catch (e) {
     console.warn("supaFlush", e);
-    setServerBadge("off", "🔴 خطای ذخیره");
+    setServerBadge("off", "🔴 خطای ذخیره — تلاش مجدد...");
+    // تلاش مجدد خودکار پس از ۳ ثانیه (داده در صف می‌ماند)
+    clearTimeout(_supaRetryTimer);
+    _supaRetryTimer = setTimeout(() => { if (supaOnline) supaFlush(); }, 3000);
   }
 }
 
@@ -3892,6 +3914,21 @@ async function supaPullChanges() {
     }
     // هیچ حذف خودکاری انجام نمی‌شود؛ داده‌ها همیشه روی سرور می‌مانند.
 
+    // تنظیمات مشترک: ادغام ایمن (approvals/POs/stocktakes از دو شعبه گم نشوند)
+    if (!_dirtySettings) {
+      try {
+        const s = await supaFetch("settings?select=*&id=eq.main");
+        if (s && s[0] && s[0].data) {
+          const remote = s[0].data;
+          const merged = mergeSettings(DB.settings, remote);
+          if (JSON.stringify(merged) !== JSON.stringify(DB.settings)) {
+            DB.settings = merged;
+            changed = true;
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+
     if (changed) {
       try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) {}
       if (typeof preDecryptAll === "function") await preDecryptAll();
@@ -3901,11 +3938,39 @@ async function supaPullChanges() {
     }
   } catch (e) { console.warn("supaPull", e); }
 }
+/* ادغام تنظیمات محلی و سرور بدون گم شدن داده‌های مشترک */
+function mergeSettings(local, remote) {
+  const out = Object.assign({}, remote, local);
+  // لیست‌هایی که چند شعبه همزمان اضافه می‌کنند → اتحاد (بدون گم شدن)
+  const unionBy = (a, b, keyFn) => {
+    const map = new Map();
+    (b || []).forEach(x => map.set(keyFn(x), x));
+    (a || []).forEach(x => map.set(keyFn(x), x));
+    return [...map.values()];
+  };
+  out.pendingEdits = unionBy(local.pendingEdits, remote.pendingEdits, r => r.id);
+  out.purchaseOrders = unionBy(local.purchaseOrders, remote.purchaseOrders, r => r.id);
+  out.stocktakes = unionBy(local.stocktakes, remote.stocktakes, r => r.id).sort((x, y) => String(y.at || "").localeCompare(String(x.at || ""))).slice(0, 200);
+  out.disabledUsers = [...new Set([...(local.disabledUsers || []), ...(remote.disabledUsers || [])])];
+  out.suppliers = [...new Set([...(local.suppliers || []), ...(remote.suppliers || [])])];
+  out.modelLimits = Object.assign({}, remote.modelLimits || {}, local.modelLimits || {});
+  return out;
+}
 function startServerSync() {
   if (!SUPA_ON) { setServerBadge("off", "⚪ آفلاین"); return; }
   clearInterval(_supaPullTimer);
   _supaPullTimer = setInterval(supaPullChanges, 5000);
+  // تلاش برای اتصال مجدد و ارسال صف در صورت قطعی
+  clearInterval(_supaReconnectTimer);
+  _supaReconnectTimer = setInterval(() => {
+    if (!supaOnline) {
+      supaInit().then(ok => { if (ok) { if (_needsResync) { _needsResync = false; supaFlush(); } supaPullChanges(); } });
+    } else if (_needsResync) {
+      _needsResync = false; supaFlush();
+    }
+  }, 10000);
 }
+let _supaReconnectTimer = null;
 
 /* ---------- گروه‌های موجودی ---------- */
 async function supaSaveGroups() {
@@ -4328,6 +4393,7 @@ async function boot() {
   document.querySelectorAll(".dp-input").forEach(buildJalaliPicker);
   // فیلدهایی که ورود دستی هم دارند
   if ($("out_birth")) attachManualDate($("out_birth"));
+  if ($("out_date")) attachManualDate($("out_date"));
 
   $("in_date").value = todayJalali();
   $("out_date").value = todayJalali();
