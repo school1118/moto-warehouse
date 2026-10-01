@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>سیستم جامع انبارداری چندشعبه‌ای جهلن موتور رئیس علی</title>
+<title>سیستم جامع انبارداری چندشعبه‌ای جهان موتور رئیس علی</title>
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
 <style>
   * { box-sizing: border-box; font-family: 'Vazirmatn', Tahoma, sans-serif; }
@@ -173,6 +173,18 @@
   .badge-role{ background:rgba(255,255,255,.15); }
   #syncBadge.online{ background:rgba(39,174,96,.35); }
   #syncBadge.offline{ background:rgba(192,57,43,.35); }
+  .pager{ display:flex; flex-wrap:wrap; align-items:center; gap:5px; padding:12px 4px 4px; justify-content:center; }
+  .pg-btn{ min-width:34px; height:34px; border:1px solid #cbd5e1; background:#fff; border-radius:8px;
+    cursor:pointer; font-family:inherit; font-size:13px; color:#334155; padding:0 8px; }
+  .pg-btn:hover:not(:disabled){ background:#eef2ff; border-color:#818cf8; }
+  .pg-btn.act{ background:#4f46e5; color:#fff; border-color:#4f46e5; font-weight:bold; }
+  .pg-btn:disabled{ opacity:.4; cursor:default; }
+  .pg-info{ font-size:12.5px; color:#64748b; margin:0 8px; }
+  .pg-size{ height:34px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; font-size:12.5px; padding:0 6px; background:#fff; color:#334155; }
+  html.dark .pg-btn{ background:#1e293b; border-color:#475569; color:#cbd5e1; }
+  html.dark .pg-btn.act{ background:#4f46e5; color:#fff; }
+  html.dark .pg-size{ background:#1e293b; border-color:#475569; color:#cbd5e1; }
+  html.dark .pg-info{ color:#94a3b8; }
   @media print{ .login-screen{ display:none !important; } }
   @media print{
     header, .branch-bar, nav, .toolbar, .actions, .no-print{ display:none !important; }
@@ -231,6 +243,8 @@
   <button data-tab="out">📤 خروج کالا</button>
   <button data-tab="cycle">🔄 چرخه موتورها</button>
   <button data-tab="inv">📦 موجودی</button>
+  <button data-tab="kardex">📒 کاردکس</button>
+  <button data-tab="archive">🗄️ بایگانی</button>
   <button data-tab="report">📈 گزارش شعب</button>
   <button data-tab="log">📝 لاگ فعالیت</button>
   <button data-tab="settings">⚙️ تنظیمات</button>
@@ -303,8 +317,49 @@ let uiState = {
   sort: { inv: { key: null, dir: 1 }, cycle: { key: null, dir: 1 } },
   invFilters: { status: "", q: "" },
   cycFilters: { status: "", q: "" },
-  invTab: "active"
+  invTab: "active",
+  arcTab: "archived",
+  page: { inv: 1, cyc: 1, size: 50, archive: 1, del: 1, kx: 1 }
 };
+/* حذف نرم: هیچ داده‌ای از سرور پاک نمی‌شود، فقط علامت‌گذاری می‌شود */
+const ARCHIVE_DAYS = 365;          // بالای یک سال → آرشیو
+function itemDeleted(it) { return !!(it && it.deleted); }
+function itemArchived(it) { return !!(it && it.archived); }
+function activeItems() { return DB.items.filter(i => !itemDeleted(i)); }
+function liveItems() { return DB.items.filter(i => !itemDeleted(i) && !itemArchived(i)); }
+function archivedItems() { return DB.items.filter(i => !itemDeleted(i) && itemArchived(i)); }
+function deletedItems() { return DB.items.filter(i => itemDeleted(i)); }
+/* آیا این موتور باید آرشیو شود؟ (ورود یا آخرین رخداد بیش از یک سال پیش) */
+function shouldArchive(it) {
+  if (itemDeleted(it) || itemArchived(it)) return false;
+  if (it.status === STATUS.IN || it.status === STATUS.RESERVED) return false;
+  const ref = it.archivedAt || it.saleDate || it.lastReturn || it.dateIn;
+  if (!ref) return false;
+  const iso = jalaliToISO(ref);
+  if (!iso) return false;
+  const days = (Date.now() - new Date(iso).getTime()) / 86400000;
+  return days > ARCHIVE_DAYS;
+}
+/* اجرای آرشیو خودکار — موتورهای فروخته/خارج‌شده بالای یک سال */
+function runAutoArchive(showToast) {
+  let n = 0;
+  for (const it of DB.items) {
+    if (shouldArchive(it)) {
+      it.archived = true;
+      it.archivedAt = new Date().toISOString();
+      if (typeof markItemDirty === "function") markItemDirty(it.id);
+      n++;
+    }
+  }
+  if (n) {
+    DB.settings.lastArchive = new Date().toISOString();
+    if (typeof save === "function") save();
+    if (showToast) toast(`📦 ${n} موتور بالای یک سال آرشیو شد`);
+  } else if (showToast) {
+    toast("موردی برای آرشیو وجود ندارد");
+  }
+  return n;
+}
 /* ---------- ستون‌های قابل انتخاب جدول‌ها (تغییر ۱) ---------- */
 const INV_COLS = [
   { k: "branch", label: "شعبه" },
@@ -456,16 +511,77 @@ function pushHistory(rec) {
 }
 function isManager() { return activeBranch === MANAGER; }
 
+/* ---------- صفحه‌بندی (۵۰/۱۰۰ در هر صفحه، حداکثر ۱۰۰۰۰ مورد) ---------- */
+const MAX_PAGES = 100;
+function paginate(rows, key) {
+  const size = Math.max(10, Math.min(100, Number(uiState.page.size) || 50));
+  const total = rows.length;
+  let pages = Math.max(1, Math.ceil(total / size));
+  pages = Math.min(pages, MAX_PAGES);
+  let cur = Math.max(1, Math.min(pages, Number(uiState.page[key]) || 1));
+  uiState.page[key] = cur;
+  const from = (cur - 1) * size;
+  const pageRows = rows.slice(from, from + size);
+  const btn = (p, lbl, dis, act) => `<button class="pg-btn${act ? " act" : ""}" ${dis ? "disabled" : ""} onclick="gotoPage('${key}',${p})">${lbl}</button>`;
+  let nums = "";
+  const start = Math.max(1, cur - 2), end = Math.min(pages, start + 4);
+  for (let p = start; p <= end; p++) nums += btn(p, p, false, p === cur);
+  const bar = `<div class="pager">
+    ${btn(1, "«", cur === 1, false)}
+    ${btn(cur - 1, "‹", cur === 1, false)}
+    ${nums}
+    ${btn(cur + 1, "›", cur === pages, false)}
+    ${btn(pages, "»", cur === pages, false)}
+    <span class="pg-info">صفحه ${cur} از ${pages} — ${total} مورد</span>
+    <select class="pg-size" onchange="setPageSize(this.value)">
+      <option value="50" ${size === 50 ? "selected" : ""}>۵۰ در صفحه</option>
+      <option value="100" ${size === 100 ? "selected" : ""}>۱۰۰ در صفحه</option>
+    </select>
+  </div>`;
+  return { pageRows, cur, pages, total, from, bar };
+}
+function gotoPage(key, p) {
+  uiState.page[key] = p;
+  if (key === "inv") renderInventory();
+  else if (key === "cyc") renderCycle();
+  else if (key === "archive") renderArchive();
+  else if (key === "del") renderDeleted();
+  else if (key === "kx" && typeof renderKardex === "function") renderKardex();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function setPageSize(v) {
+  uiState.page.size = Number(v) || 50;
+  uiState.page.inv = 1; uiState.page.cyc = 1; uiState.page.archive = 1; uiState.page.del = 1; uiState.page.kx = 1;
+  renderInventory(); renderCycle();
+  if (typeof renderArchive === "function") renderArchive();
+  if (typeof renderDeleted === "function") renderDeleted();
+  if (typeof renderKardex === "function") renderKardex();
+}
+
 /* ---------- گروه‌های موجودی ---------- */
 function groupsList() { return DB.groups && DB.groups.length ? DB.groups : []; }
 function groupLabel(key) {
   const g = groupsList().find(x => x.key === key);
   return g ? g.label : (key || "بدون گروه");
 }
+/* ---------- تامین‌کنندگان ---------- */
+function suppliersList() {
+  const set = new Set();
+  (DB.companies && DB.companies.length ? [] : []).forEach(() => {});
+  (DB.items || []).forEach(i => { if (i.supplier) set.add(i.supplier); });
+  (DB.settings.suppliers || []).forEach(s => set.add(s));
+  return [...set].sort();
+}
+function addSupplier(name) {
+  name = (name || "").trim(); if (!name) return;
+  if (!DB.settings.suppliers) DB.settings.suppliers = [];
+  if (!DB.settings.suppliers.includes(name)) DB.settings.suppliers.push(name);
+  save();
+}
 /* موجودی یک گروه در شعبه فعال (فقط اقلام «موجود») */
 function groupStock(key, branch) {
   const b = branch || activeBranch;
-  return DB.items.filter(i => !i.deleted && i.status === STATUS.IN && i.group === key &&
+  return DB.items.filter(i => !i.deleted && (i.status === STATUS.IN || i.status === STATUS.RESERVED) && i.group === key &&
     (b === MANAGER || i.branch === b)).length;
 }
 /* همه گروه‌ها با شمارش و وضعیت هشدار */
@@ -475,7 +591,7 @@ function groupsStatus(branch) {
     let state = "ok";
     if (g.min && count <= 0) state = "empty";
     else if (g.min && count <= g.min) state = "low";
-    if (g.max && count >= g.max) state = "high";
+    if (state !== "low" && state !== "empty" && g.max && count >= g.max) state = "high";
     return { g, count, state };
   });
 }
@@ -639,15 +755,37 @@ async function decryptStr(val) {
     const body = isV1 ? val.slice("enc:v1:".length) : val.slice(ENC_PREFIX.length);
     const [ivB, ctB] = body.split(":");
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(ivB) }, sessionKey, b64ToBytes(ctB));
-    return new TextDecoder().decode(pt);
+    const txt = new TextDecoder().decode(pt);
+    _decCache.set(val, txt);
+    return txt;
   } catch (e) { return "🔒 (رمزگشایی نشد)"; }
+}
+/* کش رمزگشایی برای نمایش همگام‌ساز */
+const _decCache = new Map();
+/* رمزگشایی کل DB برای پر کردن کش (یک‌بار پس از ورود/بارگذاری) */
+async function preDecryptAll() {
+  if (!sessionKey) return;
+  const jobs = [];
+  for (const it of DB.items) {
+    if (it.saleInfo && it.saleInfo.enc) {
+      for (const f of SENSITIVE_SALE_FIELDS) {
+        const v = it.saleInfo[f];
+        if (isEncVal(v) && !_decCache.has(v)) jobs.push(decryptStr(v));
+      }
+    }
+  }
+  await Promise.all(jobs);
 }
 
 /* ساخت رکورد فروش با رمزنگاری فیلدهای حساس */
 async function buildSaleRecord(data) {
   const rec = Object.assign({}, data);
   for (const f of SENSITIVE_SALE_FIELDS) {
-    if (rec[f]) rec[f] = await encryptStr(rec[f]);
+    if (rec[f]) {
+      const plain = String(rec[f]);
+      rec[f] = await encryptStr(plain);
+      if (isEncVal(rec[f])) _decCache.set(rec[f], plain);
+    }
   }
   rec.enc = true;
   return rec;
@@ -658,7 +796,9 @@ function decryptSale(sale) {
   if (!sale.enc) return out;
   for (const f of SENSITIVE_SALE_FIELDS) {
     const v = sale[f];
-    if (typeof v === "string" && (v.startsWith(ENC_PREFIX) || v.startsWith("enc:v1:"))) out[f] = "🔒 رمزگذاری‌شده";
+    if (typeof v === "string" && (v.startsWith(ENC_PREFIX) || v.startsWith("enc:v1:"))) {
+      out[f] = _decCache.has(v) ? _decCache.get(v) : "🔒 رمزگذاری‌شده";
+    }
   }
   return out;
 }
@@ -679,7 +819,11 @@ async function searchSaleAsync(item, q) {
   return fields.some(f => f.includes(s));
 }
 function maskNational(n) {
-  if (!n || isEncVal(n)) return n && isEncVal(n) ? "🔒" : "-";
+  if (!n) return "-";
+  if (isEncVal(n)) {
+    if (!_decCache.has(n)) return "🔒";
+    n = _decCache.get(n);
+  }
   if (currentUser && currentUser.role === "manager") return esc(n);
   return esc(String(n).slice(0, 3)) + "*****" + esc(String(n).slice(-2));
 }
@@ -767,8 +911,25 @@ async function exportSessionKey() {
   return new Uint8Array(raw);
 }
 
-/* ---------- انتخابگر تاریخ شمسی (روز/ماه/سال جداگانه) ---------- */
-function buildJalaliPicker(input) {
+/* ---------- ورود دستی تاریخ شمسی (قالب‌بندی خودکار) ---------- */
+function attachManualDate(el) {
+  if (!el || el.dataset.md) return;
+  el.dataset.md = "1";
+  const digits = s => s.replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[^\d]/g, "");
+  el.addEventListener("input", () => {
+    const d = digits(el.value);
+    let out = d;
+    if (d.length > 4) out = d.slice(0, 4) + "/" + d.slice(4);
+    if (d.length > 6) out = d.slice(0, 4) + "/" + d.slice(4, 6) + "/" + d.slice(6, 8);
+    el.value = out.slice(0, 10);
+  });
+  el.addEventListener("blur", () => {
+    const d = digits(el.value);
+    if (d.length === 8) el.value = d.slice(0, 4) + "/" + d.slice(4, 6) + "/" + d.slice(6, 8);
+  });
+}
+
+/* ---------- انتخابگر تاریخ شمسی (روز/ماه/سال جداگانه) ---------- */function buildJalaliPicker(input) {
   if (input.dataset.dp) return;
   input.dataset.dp = "1";
   const wrap = input.parentElement;
@@ -799,9 +960,10 @@ function buildJalaliPicker(input) {
     const first = firstDow(viewJy, viewJm);
     const sel = parseVal();
     const selD = sel && sel.y === viewJy && sel.m === viewJm ? sel.d : "";
-    // لیست سال‌ها (۲۰ سال قبل تا ۵ سال بعد)
+    // لیست سال‌ها (پیش‌فرض ۲۰ سال قبل تا ۵ سال بعد؛ برای تاریخ تولد بازه بزرگ‌تر)
+    const yBack = input.dataset.dpBack ? +input.dataset.dpBack : 20;
     const years = [];
-    for (let y = tjy - 20; y <= tjy + 5; y++) years.push(y);
+    for (let y = tjy - yBack; y <= tjy + 5; y++) years.push(y);
     let html = `<div class="dp-selects">
       <select class="dp-sel" data-part="day">
         <option value="">روز</option>
@@ -1201,6 +1363,36 @@ function buildPanels() {
     <div id="reportBody"></div>
   </div>
 
+  <div class="panel" id="tab-kardex">
+    <h2>📒 کاردکس — دفتر حرکت موجودی <span class="badge-branch">تاریخچه کامل حرکات</span></h2>
+    <p class="alert info">📒 همه ورود، خروج، فروش، انتقال، برگشت و اصلاح موجودی در یک نگاه. برای حسابداری و پیگیری روند انبار.</p>
+    <div class="toolbar">
+      <div class="field search"><label>🔍 جستجو</label><input id="kx_q" placeholder="مدل، شاسی، پلاک، نوع حرکت..."></div>
+      <button class="btn" onclick="renderKardex()">🔍 فیلتر</button>
+      <button class="btn purple" onclick="exportKardexCSV()">⬇️ CSV</button>
+      <button class="btn gray" onclick="printSection()">🖨️ چاپ</button>
+    </div>
+    <div id="kxCount" class="helper"></div>
+    <div id="kxTable"></div>
+  </div>
+
+  <div class="panel" id="tab-archive">
+    <h2>🗄️ بایگانی و حذف‌شده‌ها <span class="badge-branch">هیچ داده‌ای پاک نمی‌شود</span></h2>
+    <p class="alert info">📚 این بخش شامل موتورهای <b>آرشیوشده</b> (بالای یک سال) و <b>حذف‌شده</b> است. همه اطلاعات، مشخصات و تاریخچه کامل هر موتور اینجا محفوظ می‌ماند و قابل بازگردانی است.</p>
+    <div class="tabs-sub" id="arcTabs">
+      <button class="active" data-arctab="archived">📦 آرشیو (بالای یک سال)</button>
+      <button data-arctab="deleted">🗑️ حذف‌شده‌ها</button>
+    </div>
+    <div class="toolbar" id="arcToolbar">
+      <div class="field search"><label>🔍 جستجو</label><input id="arc_q" placeholder="نام، پلاک، شاسی، مشتری..."></div>
+      <button class="btn" onclick="renderArchive()">🔍 فیلتر</button>
+      <button class="btn purple" onclick="exportArchiveCSV()">⬇️ CSV</button>
+      <button class="btn gray" onclick="runAutoArchive(true)">⚙️ اجرای آرشیو خودکار</button>
+    </div>
+    <div id="arcCount" class="helper"></div>
+    <div id="arcTable"></div>
+  </div>
+
   <div class="panel" id="tab-log">
     <h2>📝 لاگ فعالیت‌ها <span class="badge-branch">تاریخچه کامل عملیات</span></h2>
     <div class="toolbar">
@@ -1220,8 +1412,28 @@ function buildPanels() {
       <div class="field" style="grid-column:1/-1;"><label>شعب (با کاما جدا کنید)</label><input id="set_branches" placeholder="مرکزی, شعبه ۱, شعبه ۲"></div>
     </div>
     <button class="btn success" onclick="saveSettings()">✅ ذخیره تنظیمات</button>
+    <h3>✅ درخواست‌های ویرایش کارمندان <span id="pendCount" class="helper"></span></h3>
+    <p class="helper">ویرایش‌های کارمندان ابتدا اینجا می‌آید و پس از تأیید مدیر اعمال می‌شود.</p>
+    <div id="pendingManage"></div>
     <h3>📋 مدیریت شعب</h3>
     <div id="brManage"></div>
+    <h3>🎯 حداقل/حداکثر موجودی هر مدل</h3>
+    <p class="helper">برای هر مدل جداگانه حداقل و حداکثر تعیین کنید. وقتی موجودی به حداقل برسد، هشدار و پیشنهاد سفارش داده می‌شود.</p>
+    <button class="btn warn" onclick="showReorderSuggestions()">🛒 مشاهده پیشنهاد سفارش</button>
+    <div id="modelLimitManage" style="margin-top:8px;"></div>
+    <h3>📦 انبارگردانی</h3>
+    <p class="helper">شمارش دوره‌ای انبار و ثبت مغایرت‌ها.</p>
+    <div class="actions">
+      <button class="btn success" onclick="openStocktake()">📋 شروع انبارگردانی</button>
+      <button class="btn gray" onclick="openStocktakeHistory()">📚 تاریخ انبارگردانی‌ها</button>
+      <button class="btn purple" onclick="exportStocktakeCSV()">⬇️ CSV</button>
+    </div>
+    <h3>🛒 سفارش‌های خرید</h3>
+    <p class="helper">ثبت سفارش موتور از تامین‌کننده و پیگیری وضعیت دریافت.</p>
+    <div class="actions">
+      <button class="btn success" onclick="openPurchaseOrder()">➕ سفارش خرید جدید</button>
+    </div>
+    <div id="poList" style="margin-top:8px;"></div>
     <h3>🧩 گروه‌های موجودی (حداقل / حداکثر)</h3>
     <p class="helper">برای هر گروه، حداقل و حداکثر موجودی را تعیین کنید. وقتی موجودی به حداقل برسد، هشدار داده می‌شود. (حداکثر = ۰ یعنی بدون سقف)</p>
     <div id="grpManage"></div>
@@ -1260,7 +1472,7 @@ function buildPanels() {
       </label>
       <button class="btn purple" onclick="exportAllCSV()">📊 دانلود همه داده‌ها (CSV)</button>
       <button class="btn warn" onclick="loadDemo()">🧪 بارگذاری داده نمونه</button>
-      <button class="btn danger" onclick="resetAll()">🗑️ پاک کردن همه داده‌ها</button>
+      <button class="btn warn" onclick="resetAll()">📦 آرشیو کردن همه داده‌ها (بدون حذف)</button>
     </div>
     <h3>📦 وضعیت ذخیره‌سازی</h3>
     <div id="storageInfo"></div>
@@ -1289,7 +1501,7 @@ function buildForms() {
     <div class="field"><label>قیمت خرید (تومان) *</label><input id="in_price" class="num-fmt" placeholder="300,000,000" inputmode="numeric"></div>
     <div class="field"><label>وضعیت خرید *</label>
       <select id="in_payStatus">
-        <option value="نقدی">نقدی</option><option value="چک مشتری">چک مشتری</option>
+        <option value="نقدی">نقدی</option><option value="چک">چک</option>
         <option value="اقساط">اقساط</option><option value="چکی اقساطی">چکی اقساطی</option>
         <option value="معاوضه">معاوضه</option><option value="امانی">امانی</option>
       </select>
@@ -1302,7 +1514,7 @@ function buildForms() {
 
   $("outForm").innerHTML = `
     <div class="field"><label>شماره قولنامه / رسید *</label><input id="out_receipt"></div>
-    <div class="field"><label>تاریخ فروش(شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="out_date" readonly></div></div>
+    <input type="hidden" id="out_date">
     <div class="field"><label>نوع خروج *</label>
       <select id="out_type" onchange="toggleOutType()">
         <option value="sale">فروش به مشتری/همکار</option>
@@ -1325,7 +1537,8 @@ function buildForms() {
     <div class="field" id="f_buyer"><label>نام خریدار *</label><input id="out_buyer" list="dl_buyers"><datalist id="dl_buyers"></datalist></div>
     <div class="field" id="f_father"><label>نام پدر</label><input id="out_father"></div>
     <div class="field" id="f_national"><label>کد ملی (۱۰ رقم)</label><input id="out_national" maxlength="10" inputmode="numeric"></div>
-    <div class="field" id="f_birth"><label>تاریخ تولد (شمسی)</label><div class="dp-wrap"><input class="dp-input" id="out_birth" readonly placeholder="1370/01/01"></div></div>
+    <div class="field" id="f_birth"><label>تاریخ تولد (شمسی)</label><div class="dp-wrap"><input class="dp-input" id="out_birth" data-dp-back="80" inputmode="numeric" placeholder="1370/01/01 — یا از تقویم"></div></div>
+    <div class="field" style="grid-column:1/-1;margin-top:-6px;"><span class="helper">می‌توانید دستی تایپ کنید (مثل 1370/01/01) یا از تقویم انتخاب کنید.</span></div>
     <div class="field" id="f_phone"><label>شماره تماس</label><input id="out_phone" inputmode="tel"></div>
     <div class="field" id="f_payStatus"><label>وضعیت فروش *</label><select id="out_payStatus"></select></div>
     <div class="field" id="f_salePrice"><label>قیمت فروش (تومان) *</label><input id="out_price" class="num-fmt" placeholder="400,000,000" inputmode="numeric"></div>
@@ -1387,6 +1600,7 @@ function selectBranch(b) {
 const TAB_RENDERERS = {
   dash: renderDashboard, inv: renderInventory, cycle: renderCycle, out: refreshOutItems,
   report: renderReport, log: renderLog, settings: renderSettings,
+  archive: renderArchive, kardex: renderKardex,
   backup: () => { renderStorageInfo(); refreshFileBanner(); }
 };
 function refreshFileBanner() {
@@ -1417,6 +1631,14 @@ function setupNav() {
       b.classList.add("active");
       uiState.invTab = b.dataset.invtab;
       renderInventory();
+    };
+  });
+  document.querySelectorAll("#arcTabs button").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll("#arcTabs button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      uiState.arcTab = b.dataset.arctab;
+      renderArchive();
     };
   });
 }
@@ -1612,12 +1834,12 @@ async function addExit() {
   clearErrs($("outForm"));
   const type = $("out_type").value;
   const receipt = $("out_receipt").value.trim();
+  if (!$("out_date").value.trim()) $("out_date").value = todayJalali();
   const date = $("out_date").value.trim();
   const itemId = $("out_item").value;
 
   let ok = true;
   ok &= validateField($("out_receipt"), receipt, "شماره قولنامه/رسید الزامی است");
-  ok &= validateField($("out_date"), date, "تاریخ فروش الزامی است");
   ok &= validateField($("out_item"), itemId, "یک موتور انتخاب کنید");
   const item = DB.items.find(e => e.id === itemId);
   if (item && item.status !== STATUS.IN) { validateField($("out_item"), false, "موتور در وضعیت موجود نیست"); ok = false; }
@@ -1649,6 +1871,7 @@ async function addExit() {
     });
     item.saleDate = date;
     item.soldBy = userTag();
+    item.reserveInfo = null;
     changeStatusInternal(item, STATUS.SALE, `فروش به ${buyer} (${item.saleInfo.buyerType}) - قولنامه:${receipt} - وضعیت:${payStatus}`);
   } else {
     const to = $("out_to").value;
@@ -1678,10 +1901,18 @@ async function addExit() {
 function changeStatusInternal(item, newStatus, note) {
   const old = item.status;
   item.status = newStatus;
+  const extra = {};
+  // اگر از حالت رزرو خارج می‌شود، اطلاعات رزرو در تاریخچه ثبت شود
+  if (old === STATUS.RESERVED && item.reserveInfo) {
+    extra.reserve = item.reserveInfo;
+    extra.reserveReleased = true;
+  }
   pushHistory({
     id: uid("h"), itemId: item.id, branch: item.branch,
     action: "status", fromStatus: old, toStatus: newStatus,
     date: todayJalali(), note: note || "تغییر وضعیت",
+    by: typeof userTag === "function" ? userTag() : "-",
+    extra: Object.keys(extra).length ? extra : undefined,
     createdAt: new Date().toISOString()
   });
 }
@@ -1689,7 +1920,8 @@ function changeStatusInternal(item, newStatus, note) {
    جدول‌های عمومی
    ========================================================================== */
 function itemsForActiveBranch() {
-  const base = DB.items.filter(i => !i.deleted);
+  // موتورهای حذف‌شده و آرشیوشده در لیست فعال نمایش داده نمی‌شوند
+  const base = DB.items.filter(i => !i.deleted && !i.archived);
   if (isManager()) return base;
   return base.filter(i => i.branch === activeBranch);
 }
@@ -1739,16 +1971,20 @@ function renderCycle() {
   const fStatus = $("cyc_status") ? $("cyc_status").value : "";
   const from = $("cyc_from") ? jalaliToISO($("cyc_from").value) : "";
   const to = $("cyc_to") ? jalaliToISO($("cyc_to").value) : "";
+  const evDate = it => jalaliToISO(it.saleDate || it.lastReturn || it.dateIn);
 
   let rows = itemsForActiveBranch().filter(it => {
     if (fStatus && it.status !== fStatus) return false;
-    if (from && jalaliToISO(it.dateIn) < from) return false;
-    if (to && jalaliToISO(it.dateIn) > to) return false;
+    if (from && evDate(it) < from) return false;
+    if (to && evDate(it) > to) return false;
     return globalSearch(it, q);
   });
   rows = sortRows(rows, uiState.sort.cycle);
-  $("cycCount").textContent = `${rows.length} مورد`;
-  if (!rows.length) { $("cycTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
+  const totalCount = rows.length;
+  const pg = paginate(rows, "cyc");
+  rows = pg.pageRows;
+  $("cycCount").textContent = `${totalCount} مورد — صفحه ${pg.cur} از ${pg.pages}`;
+  if (!totalCount) { $("cycTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
 
   const cols = getCols("cyc");
   const cellVal = (it, k, s) => {
@@ -1761,7 +1997,7 @@ function renderCycle() {
       case "payStatus": return s.payStatus ? payBadge(s.payStatus) : "-";
       case "salePrice": return money(s.salePrice);
       case "receipt": return esc(s.receipt) || "-";
-      case "saleDate": return esc(s.date) || "-";
+      case "saleDate": return esc(it.saleDate || s.date) || "-";
       case "volume": case "type": case "color": case "year": return esc(it[k]) || "-";
       case "engine": case "chassis": return `<span style="font-size:10px;direction:ltr;">${esc(it[k]) || "-"}</span>`;
       case "plate": return `<span style="direction:ltr;">${esc(it.plate) || "-"}</span>`;
@@ -1787,16 +2023,19 @@ function renderCycle() {
           ${reserveBtn}${unreserveBtn}
           <button class="btn small success" onclick="editItem('${it.id}')">✏️</button>
           <button class="btn small" onclick="showHistory('${it.id}')">📜</button>
+          ${canManage() ? `<button class="btn small" onclick="openStockAdjust('${it.id}')" title="اصلاح موجودی">🔧</button>
+          <button class="btn small" onclick="openSupplierReturn('${it.id}')" title="برگشت به تامین‌کننده">↩️</button>` : ""}
         </td>
       </tr>`;
-    }).join("") + "</tbody></table></div>";
+    }).join("") + "</tbody></table></div>" + pg.bar;
 }
 
 function exportCycleCSV() {
   const rows = [["شعبه", "شرکت", "نام", "حجم", "رنگ", "شاسی", "پلاک", "مشتری", "کد ملی", "وضعیت فروش", "وضعیت", "قیمت خرید", "قیمت فروش"]];
   itemsForActiveBranch().forEach(it => {
-    const s = it.saleInfo || {};
-    rows.push([it.branch, it.company, it.name, it.volume, it.color, it.chassis, it.plate, s.buyer, s.national, s.payStatus, it.status, it.price, s.salePrice]);
+    const s = decryptSale(it.saleInfo || {});
+    const nat = isManager() ? (s.national || "") : maskNational(s.national);
+    rows.push([it.branch, it.company, it.name, it.volume, it.color, it.chassis, it.plate, s.buyer, nat, s.payStatus, it.status, it.price, s.salePrice]);
   });
   downloadCSV(`cycle-${todayJalali().replace(/\//g, "-")}.csv`, rows);
   toast("✅ فایل CSV دانلود شد");
@@ -1939,7 +2178,7 @@ function openSaleModal(item) {
       <div class="field"><label>نام خریدار *</label><input id="m_buyer"></div>
       <div class="field"><label>نام پدر</label><input id="m_father"></div>
       <div class="field"><label>کد ملی</label><input id="m_national" maxlength="10"></div>
-      <div class="field"><label>تاریخ تولد</label><div class="dp-wrap"><input class="dp-input" id="m_birth" readonly></div></div>
+      <div class="field"><label>تاریخ تولد</label><div class="dp-wrap"><input class="dp-input" id="m_birth" data-dp-back="80" inputmode="numeric" placeholder="1370/01/01"></div></div>
       <div class="field"><label>شماره تماس</label><input id="m_phone"></div>
       <div class="field"><label>وضعیت فروش</label><select id="m_payStatus"></select></div>
       <div class="field"><label>قیمت فروش (تومان)</label><input id="m_price" class="num-fmt"></div>
@@ -1971,12 +2210,14 @@ function openSaleModal(item) {
       by: userTag(), extra: { buyer, receipt, salePrice: item.saleInfo.salePrice, payStatus: item.saleInfo.payStatus }
     });
     changeStatusInternal(item, STATUS.SALE, `فروش به ${buyer} (${item.saleInfo.buyerType}) - قولنامه:${receipt}`);
+    item.reserveInfo = null;
     save({ items: [item.id] }); closeModal(); toast("✅ فروش ثبت شد");
     renderCycle(); renderDashboard(); renderBranchTabs();
   }, "ثبت فروش", () => {
     mFillPay();
     attachNumFmt($("modalMsg"));
     buildJalaliPicker($("m_birth"));
+    if ($("m_birth")) attachManualDate($("m_birth"));
   });
 }
 function mFillPay() {
@@ -2015,40 +2256,80 @@ function editItem(itemId) {
       <div class="field"><label>تامین‌کننده</label><input id="e_supplier" value="${esc(it.supplier)}"></div>
       <div class="field"><label>بارنامه</label><input id="e_barname" value="${esc(it.barname)}"></div>
       <div class="field"><label>تحویل‌گیرنده</label><input id="e_receiver" value="${esc(it.receiver)}"></div>
-      <div class="field"><label>وضعیت</label><select id="e_status">${Object.values(STATUS).map(x => `<option ${it.status === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+      <div class="field"><label>وضعیت</label><select id="e_status" ${branchLocked ? "disabled" : ""}>${Object.values(STATUS).map(x => `<option ${it.status === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
     </div>
     ${s.buyer ? `
     <h4 style="color:#2a5298;margin:14px 0 6px;">اطلاعات فروش</h4>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <div class="field"><label>نام خریدار</label><input id="e_buyer" value="${esc(s.buyer)}"></div>
-      <div class="field"><label>نام پدر</label><input id="e_father" value="${esc(s.father)}"></div>
-      <div class="field"><label>کد ملی</label><input id="e_national" value="${esc(s.national)}" maxlength="10"></div>
-      <div class="field"><label>تلفن</label><input id="e_phone" value="${esc(s.phone)}"></div>
-      <div class="field"><label>وضعیت فروش</label><select id="e_paySale">${["نقدی", "چکی", "اقساطی"].map(x => `<option ${s.payStatus === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
-      <div class="field"><label>قیمت فروش</label><input id="e_salePrice" class="num-fmt" value="${(s.salePrice || 0).toLocaleString("en-US")}"></div>
-      <div class="field"><label>شماره قولنامه</label><input id="e_receipt" value="${esc(s.receipt)}"></div>
-      <div class="field" style="grid-column:1/-1;"><label>آدرس</label><textarea id="e_address" rows="2">${esc(s.address)}</textarea></div>
+      <div class="field"><label>نام خریدار</label><input id="e_buyer" value="${esc(s.buyer)}" ${branchLocked ? "readonly" : ""}></div>
+      <div class="field"><label>نام پدر</label><input id="e_father" value="${esc(s.father)}" ${branchLocked ? "readonly" : ""}></div>
+      <div class="field"><label>کد ملی</label><input id="e_national" value="${esc(s.national)}" maxlength="10" ${branchLocked ? "readonly" : ""}></div>
+      <div class="field"><label>تلفن</label><input id="e_phone" value="${esc(s.phone)}" ${branchLocked ? "readonly" : ""}></div>
+      <div class="field"><label>وضعیت فروش</label><select id="e_paySale" ${branchLocked ? "disabled" : ""}>${["نقدی", "چکی", "اقساطی"].map(x => `<option ${s.payStatus === x ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+      <div class="field"><label>قیمت فروش</label><input id="e_salePrice" class="num-fmt" value="${(s.salePrice || 0).toLocaleString("en-US")}" ${branchLocked ? "readonly" : ""}></div>
+      <div class="field"><label>شماره قولنامه</label><input id="e_receipt" value="${esc(s.receipt)}" ${branchLocked ? "readonly" : ""}></div>
+      <div class="field" style="grid-column:1/-1;"><label>آدرس</label><textarea id="e_address" rows="2" ${branchLocked ? "readonly" : ""}>${esc(s.address)}</textarea></div>
     </div>` : ""}`;
   openModal("✏️ ویرایش موتور", html, async () => {
     const oldBranch = it.branch, oldStatus = it.status;
-    it.company = $("e_company").value.trim(); it.name = $("e_name").value.trim();
-    if ($("e_group")) it.group = $("e_group").value;
-    it.volume = $("e_volume").value.trim(); it.type = $("e_type").value.trim();
-    it.color = $("e_color").value.trim(); it.year = $("e_year").value.trim();
-    it.chassis = $("e_chassis").value.trim(); it.engine = $("e_engine").value.trim();
-    it.plate = $("e_plate").value.trim();
-    it.price = Number($("e_price").value.replace(/[^\d]/g, "")) || 0;
-    it.payStatus = $("e_payStatus").value;
-    if (!branchLocked) it.branch = $("e_branch").value;
-    it.supplier = $("e_supplier").value.trim(); it.barname = $("e_barname").value.trim(); it.receiver = $("e_receiver").value.trim();
-    const newStatus = $("e_status").value;
+    // مقادیر جدید از فرم
+    const nv = {
+      company: $("e_company").value.trim(), name: $("e_name").value.trim(),
+      group: $("e_group") ? $("e_group").value : it.group,
+      volume: $("e_volume").value.trim(), type: $("e_type").value.trim(),
+      color: $("e_color").value.trim(), year: $("e_year").value.trim(),
+      chassis: $("e_chassis").value.trim(), engine: $("e_engine").value.trim(),
+      plate: $("e_plate").value.trim(),
+      price: Number($("e_price").value.replace(/[^\d]/g, "")) || 0,
+      payStatus: $("e_payStatus").value,
+      supplier: $("e_supplier").value.trim(), barname: $("e_barname").value.trim(), receiver: $("e_receiver").value.trim()
+    };
+    if (!branchLocked) nv.branch = $("e_branch").value;
+    if (s.buyer) {
+      nv["saleInfo.buyer"] = $("e_buyer").value.trim();
+      nv["saleInfo.father"] = $("e_father").value.trim();
+      nv["saleInfo.national"] = $("e_national").value.trim();
+      nv["saleInfo.phone"] = $("e_phone").value.trim();
+      nv["saleInfo.payStatus"] = $("e_paySale").value;
+      nv["saleInfo.salePrice"] = Number($("e_salePrice").value.replace(/[^\d]/g, "")) || 0;
+      nv["saleInfo.receipt"] = $("e_receipt").value.trim();
+      nv["saleInfo.address"] = $("e_address").value.trim();
+    }
+    const newStatus = branchLocked ? it.status : $("e_status").value;
+
+    // کارمند: ویرایش فقط به‌صورت درخواست برای تأیید مدیر ثبت می‌شود
+    if (!canManage()) {
+      const changes = {};
+      for (const k in nv) {
+        let from, to = nv[k];
+        if (k.indexOf("saleInfo.") === 0) {
+          const f = k.slice(9);
+          from = s[f] != null ? String(s[f]) : "";
+        } else {
+          from = it[k] != null ? String(it[k]) : "";
+        }
+        if (String(from) !== String(to)) changes[k] = { from, to };
+      }
+      if (!Object.keys(changes).length) { closeModal(); toast("تغییری ثبت نشد"); return; }
+      submitPendingEdit(it.id, changes, "ویرایش مشخصات");
+      closeModal();
+      return;
+    }
+
+    // مدیر: اعمال مستقیم
+    it.company = nv.company; it.name = nv.name;
+    if ($("e_group")) it.group = nv.group;
+    it.volume = nv.volume; it.type = nv.type; it.color = nv.color; it.year = nv.year;
+    it.chassis = nv.chassis; it.engine = nv.engine; it.plate = nv.plate;
+    it.price = nv.price; it.payStatus = nv.payStatus;
+    if (!branchLocked) it.branch = nv.branch;
+    it.supplier = nv.supplier; it.barname = nv.barname; it.receiver = nv.receiver;
     if (s.buyer) {
       it.saleInfo = await buildSaleRecord(Object.assign({}, s, {
-        buyer: $("e_buyer").value.trim(), father: $("e_father").value.trim(),
-        national: $("e_national").value.trim(), phone: $("e_phone").value.trim(),
-        payStatus: $("e_paySale").value,
-        salePrice: Number($("e_salePrice").value.replace(/[^\d]/g, "")) || 0,
-        receipt: $("e_receipt").value.trim(), address: $("e_address").value.trim()
+        buyer: nv["saleInfo.buyer"], father: nv["saleInfo.father"],
+        national: nv["saleInfo.national"], phone: nv["saleInfo.phone"],
+        payStatus: nv["saleInfo.payStatus"], salePrice: nv["saleInfo.salePrice"],
+        receipt: nv["saleInfo.receipt"], address: nv["saleInfo.address"]
       }));
     }
     if (oldBranch !== it.branch) {
@@ -2088,7 +2369,7 @@ function historyCard(h, refItem) {
   </div>`;
 }
 function actionLabel(a) {
-  return { in: "📥 ورود", sale: "💰 فروش", transfer: "🔀 انتقال", return: "🔄 برگشتی", status: "🔄 تغییر وضعیت", edit: "✏️ ویرایش", reserve: "🔖 رزرو", exit: "📤 خروج", delete: "🗑️ حذف" }[a] || a;
+  return { in: "📥 ورود", sale: "💰 فروش", transfer: "🔀 انتقال", return: "🔄 برگشتی", status: "🔄 تغییر وضعیت", edit: "✏️ ویرایش", reserve: "🔖 رزرو", exit: "📤 خروج", delete: "🗑️ حذف", restore: "♻️ بازگردانی", archive: "📦 آرشیو" }[a] || a;
 }
 function statusBadge(s) {
   const map = { "موجود": "b-in", "رزرو": "b-trust", "فروش": "b-sale", "خروج": "b-out", "برگشتی": "b-return" };
@@ -2139,16 +2420,50 @@ function openHistoryArchive() {
    حذف
    ========================================================================== */
 function deleteItem(itemId) {
+  if (!canManage()) { toast("فقط مدیر می‌تواند موتور حذف کند", false); return; }
   const it = DB.items.find(i => i.id === itemId);
   if (!it) return;
-  openModal("حذف موتور", `آیا موتور <b>${esc(it.company)} ${esc(it.name)}</b> (شاسی: ${esc(it.chassis) || "-"}) حذف شود؟<br><span style="color:#2a5298;">تاریخچه این موتور برای همیشه حفظ می‌شود.</span>`, () => {
-    // ثبت رخداد حذف در تاریخچه پیش از حذف
-    pushHistory({ itemId, branch: it.branch, action: "delete", fromStatus: it.status, toStatus: null, date: todayJalali(), note: `حذف موتور ${it.company} ${it.name} توسط ${userTag()}`, by: userTag() });
-    DB.items = DB.items.filter(i => i.id !== itemId);
-    if (typeof markDeletedItem === "function") markDeletedItem(itemId);
-    save(); closeModal(); toast("🗑️ حذف شد (تاریخچه حفظ شد)");
+  openModal("حذف موتور", `آیا موتور <b>${esc(it.company)} ${esc(it.name)}</b> (شاسی: ${esc(it.chassis) || "-"}) از لیست فعال حذف شود؟<br><span style="color:#2a5298;">✅ اطلاعات کامل آن روی سرور باقی می‌ماند و در «بایگانی و حذف‌شده‌ها» قابل مشاهده و بازگردانی است.</span>`, () => {
+    it.deleted = true;
+    it.deletedAt = new Date().toISOString();
+    it.deletedBy = userTag();
+    pushHistory({ itemId, branch: it.branch, action: "delete", fromStatus: it.status, toStatus: null, date: todayJalali(), note: `حذف موتور ${it.company} ${it.name} توسط ${userTag()} (قابل بازگردانی)`, by: userTag() });
+    save({ items: [itemId] });
+    closeModal(); toast("🗑️ حذف شد — در بایگانی قابل بازگردانی است");
     renderInventory(); renderCycle(); renderDashboard(); renderBranchTabs();
   }, "حذف");
+}
+/* بازگردانی موتور حذف‌شده */
+function restoreItem(itemId) {
+  if (!canManage()) { toast("فقط مدیر", false); return; }
+  const it = DB.items.find(i => i.id === itemId);
+  if (!it) return;
+  it.deleted = false; it.deletedAt = null; it.deletedBy = null;
+  pushHistory({ itemId, branch: it.branch, action: "restore", fromStatus: it.status, toStatus: it.status, date: todayJalali(), note: `بازگردانی موتور توسط ${userTag()}`, by: userTag() });
+  save({ items: [itemId] });
+  toast("♻️ موتور بازگردانی شد");
+  renderInventory(); renderCycle(); renderDashboard(); renderBranchTabs();
+  if (typeof renderArchive === "function") renderArchive();
+}
+/* آرشیو دستی موتور */
+function archiveItem(itemId) {
+  const it = DB.items.find(i => i.id === itemId);
+  if (!it) return;
+  it.archived = true; it.archivedAt = new Date().toISOString();
+  pushHistory({ itemId, branch: it.branch, action: "archive", fromStatus: it.status, toStatus: it.status, date: todayJalali(), note: `آرشیو موتور توسط ${userTag()}`, by: userTag() });
+  save({ items: [itemId] });
+  toast("📦 موتور آرشیو شد");
+  renderInventory(); renderCycle(); renderDashboard();
+  if (typeof renderArchive === "function") renderArchive();
+}
+function unarchiveItem(itemId) {
+  const it = DB.items.find(i => i.id === itemId);
+  if (!it) return;
+  it.archived = false; it.archivedAt = null;
+  save({ items: [itemId] });
+  toast("♻️ از آرشیو خارج شد");
+  if (typeof renderArchive === "function") renderArchive();
+  renderInventory(); renderDashboard();
 }
 /* ==========================================================================
    موجودی
@@ -2195,9 +2510,12 @@ function renderInventory() {
   else rows = sortRows(rows, uiState.sort.inv);
 
   const totalVal = rows.reduce((s, r) => s + (r.price || 0), 0);
-  $("invCount").textContent = `${rows.length} قلم — ارزش خرید: ${money(totalVal)} ${DB.settings.currency}`;
+  const totalCount = rows.length;
+  const pg = paginate(rows, "inv");
+  rows = pg.pageRows;
+  $("invCount").textContent = `${totalCount} قلم — ارزش خرید: ${money(totalVal)} ${DB.settings.currency} — صفحه ${pg.cur} از ${pg.pages}`;
 
-  if (!rows.length) { $("invTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
+  if (!totalCount) { $("invTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
 
   const cols = getCols("inv");
   const cellVal = (en, k) => {
@@ -2218,14 +2536,15 @@ function renderInventory() {
       <th class="no-sort">عملیات</th>
     </tr></thead><tbody>` +
     rows.map((en, i) => `<tr>
-      <td>${i + 1}</td>
+      <td>${pg.from + i + 1}</td>
       ${cols.map(c => `<td>${cellVal(en, c.k)}</td>`).join("")}
       <td style="white-space:nowrap;">
         <button class="btn small success" onclick="editItem('${en.id}')">✏️</button>
         <button class="btn small" onclick="showHistory('${en.id}')">📜</button>
-        <button class="btn small danger" onclick="deleteItem('${en.id}')">🗑️</button>
+        <button class="btn small" onclick="archiveItem('${en.id}')" title="آرشیو">📦</button>
+        ${canManage() ? `<button class="btn small danger" onclick="deleteItem('${en.id}')">🗑️</button>` : ""}
       </td>
-    </tr>`).join("") + "</tbody></table></div>";
+    </tr>`).join("") + "</tbody></table></div>" + pg.bar;
 }
 
 function renderInvAge() {
@@ -2418,6 +2737,492 @@ function renderSalesChart(items) {
   </div>`;
 }
 /* ==========================================================================
+   بایگانی و حذف‌شده‌ها + تأیید ویرایش کارمندان
+   هیچ داده‌ای از سرور پاک نمی‌شود؛ فقط علامت‌گذاری و بازیابی.
+   ========================================================================== */
+
+/* ---------- لیست پایه با توجه به شعبه ---------- */
+function branchScoped(list) {
+  if (isManager()) return list;
+  return list.filter(i => i.branch === activeBranch);
+}
+
+/* ---------- رندر بایگانی / حذف‌شده‌ها ---------- */
+function renderArchive() {
+  const tab = uiState.arcTab || "archived";
+  const q = ($("arc_q") ? $("arc_q").value : "").trim();
+  const base = tab === "deleted" ? branchScoped(deletedItems()) : branchScoped(archivedItems());
+  const rows = base.filter(i => globalSearch(i, q));
+
+  const totalCount = rows.length;
+  const pg = paginate(rows, tab === "deleted" ? "del" : "archive");
+  const pageRows = pg.pageRows;
+  $("arcCount").textContent = `${totalCount} مورد — صفحه ${pg.cur} از ${pg.pages}`;
+  if (!totalCount) { $("arcTable").innerHTML = '<div class="empty">موردی یافت نشد</div>'; return; }
+
+  const cols = getCols("cyc");
+  const cellVal = (it, k, s) => {
+    switch (k) {
+      case "status": return statusBadge(it.status);
+      case "group": return it.group ? `<span class="badge b-in">${esc(groupLabel(it.group))}</span>` : "-";
+      case "buyer": return esc(s.buyer) || "-";
+      case "national": return `<span style="font-size:10px;direction:ltr;">${maskNational(s.national)}</span>`;
+      case "phone": return `<span style="direction:ltr;">${esc(s.phone) || "-"}</span>`;
+      case "payStatus": return s.payStatus ? payBadge(s.payStatus) : "-";
+      case "salePrice": return money(s.salePrice);
+      case "receipt": return esc(s.receipt) || "-";
+      case "saleDate": return esc(it.saleDate || s.date) || "-";
+      case "engine": case "chassis": return `<span style="font-size:10px;direction:ltr;">${esc(it[k]) || "-"}</span>`;
+      case "plate": return `<span style="direction:ltr;">${esc(it.plate) || "-"}</span>`;
+      case "returnCount": return it.returnCount ? `<span class="badge b-return">${it.returnCount} بار</span>` : "-";
+      case "company": return `<b>${esc(it.company)}</b>`;
+      default: return esc(it[k]) || "-";
+    }
+  };
+
+  $("arcTable").innerHTML = `<div style="overflow-x:auto;"><table>
+    <thead><tr>
+      ${cols.map(c => `<th class="no-sort">${esc(c.label)}</th>`).join("")}
+      <th class="no-sort">وضعیت بایگانی</th>
+      <th class="no-sort">عملیات</th>
+    </tr></thead><tbody>` +
+    pageRows.map(it => {
+      const s = decryptSale(it.saleInfo || {});
+      const badge = tab === "deleted"
+        ? `<span class="badge b-out">حذف: ${esc((it.deletedAt || "").slice(0, 10))}</span>`
+        : `<span class="badge b-return">آرشیو: ${esc((it.archivedAt || "").slice(0, 10))}</span>`;
+      return `<tr>
+        ${cols.map(c => `<td>${cellVal(it, c.k, s)}</td>`).join("")}
+        <td>${badge}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn small" onclick="showHistory('${it.id}')">📜</button>
+          ${canManage() ? `<button class="btn small success" onclick="${tab === "deleted" ? "restoreItem" : "unarchiveItem"}('${it.id}'); renderArchive();">♻️ بازگردانی</button>` : ""}
+        </td>
+      </tr>`;
+    }).join("") + "</tbody></table></div>" + pg.bar;
+}
+function renderDeleted() { uiState.arcTab = "deleted"; renderArchive(); }
+
+function exportArchiveCSV() {
+  const tab = uiState.arcTab || "archived";
+  const base = tab === "deleted" ? branchScoped(deletedItems()) : branchScoped(archivedItems());
+  const rows = [["شعبه", "شرکت", "نام", "شاسی", "پلاک", "وضعیت", "مشتری", "کد ملی", "قیمت خرید", "قیمت فروش", "تاریخ بایگانی/حذف"]];
+  base.forEach(it => {
+    const s = decryptSale(it.saleInfo || {});
+    const nat = isManager() ? (s.national || "") : maskNational(s.national);
+    rows.push([it.branch, it.company, it.name, it.chassis, it.plate, it.status, s.buyer, nat, it.price, s.salePrice, (it.archivedAt || it.deletedAt || "").slice(0, 10)]);
+  });
+  downloadCSV(`archive-${todayJalali().replace(/\//g, "-")}.csv`, rows);
+  toast("✅ فایل CSV بایگانی دانلود شد");
+}
+
+/* ==========================================================================
+   تأیید ویرایش کارمندان (Workflow)
+   کارمند ویرایش را پیشنهاد می‌دهد → مدیر تأیید/رد می‌کند.
+   ========================================================================== */
+function pendingList() {
+  if (!DB.settings.pendingEdits) DB.settings.pendingEdits = [];
+  return DB.settings.pendingEdits;
+}
+function submitPendingEdit(itemId, changes, label) {
+  const it = DB.items.find(i => i.id === itemId);
+  if (!it) return;
+  const rec = {
+    id: uid("pe"),
+    itemId,
+    branch: it.branch,
+    itemName: `${it.company || ""} ${it.name || ""}`.trim(),
+    label: label || "ویرایش",
+    changes,                 // { field: {from, to} }
+    by: currentUser ? currentUser.username : "-",
+    at: new Date().toISOString()
+  };
+  pendingList().push(rec);
+  save();
+  toast("📨 درخواست ویرایش برای تأیید مدیر ارسال شد");
+}
+function applyPendingEdit(rec) {
+  const it = DB.items.find(i => i.id === rec.itemId);
+  if (!it) { toast("موتور یافت نشد", false); return; }
+  for (const k in rec.changes) {
+    const ch = rec.changes[k];
+    if (k.indexOf("saleInfo.") === 0) {
+      it.saleInfo = it.saleInfo || {};
+      it.saleInfo[k.slice(9)] = ch.to;
+    } else {
+      it[k] = ch.to;
+    }
+  }
+  save({ items: [it.id] });
+  pushHistory({ itemId: it.id, branch: it.branch, action: "edit", fromStatus: it.status, toStatus: it.status, date: todayJalali(), note: `تأیید ویرایش توسط مدیر (${rec.by})`, by: userTag() });
+}
+function approvePending(id) {
+  if (!canManage()) { toast("فقط مدیر", false); return; }
+  const list = pendingList();
+  const rec = list.find(r => r.id === id);
+  if (!rec) return;
+  applyPendingEdit(rec);
+  DB.settings.pendingEdits = list.filter(r => r.id !== id);
+  save();
+  renderSettings(); renderCycle(); renderInventory(); renderDashboard();
+  toast("✅ ویرایش تأیید و اعمال شد");
+}
+function rejectPending(id) {
+  if (!canManage()) { toast("فقط مدیر", false); return; }
+  DB.settings.pendingEdits = pendingList().filter(r => r.id !== id);
+  save();
+  renderSettings();
+  toast("❌ درخواست رد شد");
+}
+function renderPending() {
+  const el = $("pendingManage"); if (!el) return;
+  const list = pendingList();
+  const cnt = $("pendCount"); if (cnt) cnt.textContent = list.length ? `(${list.length} در انتظار)` : "(خالی)";
+  if (!list.length) { el.innerHTML = '<div class="empty">درخواستی در انتظار تأیید نیست</div>'; return; }
+  el.innerHTML = list.map(r => {
+    const changes = Object.keys(r.changes).map(k => {
+      const c = r.changes[k];
+      const f = k.replace("saleInfo.", "");
+      return `<div style="font-size:12.5px;margin:2px 0;"><b>${esc(colFa(f))}</b>: <span style="color:#c0392b;text-decoration:line-through;">${esc(c.from) || "—"}</span> ← <span style="color:#27ae60;">${esc(c.to) || "—"}</span></div>`;
+    }).join("");
+    return `<div class="card" style="border-right:4px solid #f59e0b;margin-bottom:8px;padding:10px 12px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:center;">
+        <div><b>${esc(r.itemName)}</b> <span class="helper">— توسط ${esc(r.by)} — ${esc(r.branch)}</span></div>
+        <div>
+          <button class="btn small success" onclick="approvePending('${r.id}')">✅ تأیید</button>
+          <button class="btn small danger" onclick="rejectPending('${r.id}')">❌ رد</button>
+        </div>
+      </div>
+      <div style="margin-top:6px;">${changes}</div>
+    </div>`;
+  }).join("");
+}
+function colFa(k) {
+  const map = { company: "شرکت", name: "نام", volume: "حجم", type: "تیپ", color: "رنگ", year: "سال",
+    chassis: "شاسی", engine: "موتور", plate: "پلاک", price: "قیمت خرید", supplier: "تامین‌کننده",
+    barname: "بارنامه", receiver: "تحویل‌گیرنده", group: "گروه", buyer: "نام خریدار", father: "نام پدر",
+    national: "کد ملی", phone: "تلفن", payStatus: "وضعیت فروش", salePrice: "قیمت فروش",
+    receipt: "قولنامه", address: "آدرس" };
+  return map[k] || k;
+}
+/* ==========================================================================
+   قابلیت‌های پیشرفته انبارداری
+   ۱) اصلاح موجودی  ۲) انبارگردانی  ۳) برگشت به تامین‌کننده + سفارش خرید
+   ۵) حداقل/حداکثر هر مدل  ۶) کاردکس (دفتر حرکت موجودی)
+   ========================================================================== */
+
+/* ============================ ۱) اصلاح موجودی ============================ */
+function openStockAdjust(itemId) {
+  if (!canManage()) { toast("فقط مدیر می‌تواند موجودی را اصلاح کند", false); return; }
+  const it = DB.items.find(i => i.id === itemId);
+  if (!it) return;
+  const html = `
+    <p class="helper">مقدار فعلی: <b>${esc(it.company)} ${esc(it.name)}</b> — وضعیت: ${statusBadge(it.status)}</p>
+    <div class="grid" style="grid-template-columns:1fr 1fr;">
+      <div class="field"><label>وضعیت جدید</label><select id="adj_status">${Object.values(STATUS).map(s => `<option ${it.status === s ? "selected" : ""}>${s}</option>`).join("")}</select></div>
+      <div class="field"><label>تعداد اصلاح (±)</label><input id="adj_qty" type="number" value="0" style="direction:ltr;"></div>
+    </div>
+    <div class="field"><label>دلیل اصلاح *</label><textarea id="adj_reason" rows="2" placeholder="مثلاً: شمارش مجدد، مغایرت انبارگردانی، ایراد فنی..."></textarea></div>
+    <div id="adj_err" class="login-err"></div>`;
+  openModal("🔧 اصلاح موجودی", html, () => {
+    const newStatus = $("adj_status").value;
+    const dq = Number($("adj_qty").value) || 0;
+    const reason = $("adj_reason").value.trim();
+    if (!reason) { $("adj_err").textContent = "دلیل اصلاح الزامی است"; return; }
+    const old = it.status;
+    const note = `اصلاح موجودی: ${old} → ${newStatus}${dq ? ` (تعداد ${dq > 0 ? "+" : ""}${dq})` : ""} — دلیل: ${reason}`;
+    changeStatusInternal(it, newStatus, note);
+    pushHistory({ id: uid("h"), itemId: it.id, branch: it.branch, action: "adjust", fromStatus: old, toStatus: newStatus, date: todayJalali(), note, by: userTag(), extra: { reason, delta: dq } });
+    save({ items: [it.id] });
+    closeModal(); toast("✅ موجودی اصلاح شد");
+    renderInventory(); renderCycle(); renderDashboard();
+  }, "ثبت اصلاح");
+}
+
+/* ============================ ۲) انبارگردانی ============================ */
+function openStocktake() {
+  if (!canManage()) { toast("فقط مدیر", false); return; }
+  const items = itemsForActiveBranch().filter(i => i.status === STATUS.IN || i.status === STATUS.RESERVED);
+  const byModel = {};
+  items.forEach(i => {
+    const k = (i.company || "") + "|" + (i.name || "");
+    byModel[k] = (byModel[k] || 0) + 1;
+  });
+  const keys = Object.keys(byModel).sort();
+  if (!keys.length) { toast("موتوری برای شمارش وجود ندارد", false); return; }
+  const html = `
+    <p class="helper">تعداد واقعی هر مدل را وارد کنید. اختلاف با سیستم محاسبه و ثبت می‌شود.</p>
+    <div style="max-height:400px;overflow:auto;">
+    <table style="width:100%;font-size:13px;">
+      <thead><tr><th style="text-align:right;">مدل</th><th>سیستم</th><th>شمارش‌شده</th><th>اختلاف</th></tr></thead>
+      <tbody>
+      ${keys.map((k, idx) => {
+        const [c, n] = k.split("|");
+        return `<tr>
+          <td>${esc(c)} ${esc(n)}</td>
+          <td style="text-align:center;"><b>${byModel[k]}</b></td>
+          <td><input type="number" class="st-count" data-k="${esc(k)}" data-sys="${byModel[k]}" value="${byModel[k]}" style="width:70px;direction:ltr;" oninput="stUpdate(this)"></td>
+          <td class="st-diff" data-k="${esc(k)}" style="text-align:center;">0</td>
+        </tr>`;
+      }).join("")}
+      </tbody>
+    </table></div>
+    <div class="field" style="margin-top:10px;"><label>توضیحات انبارگردانی</label><input id="st_note" placeholder="مثلاً: انبارگردانی پایان فصل"></div>`;
+  openModal("📋 انبارگردانی", html, () => {
+    const diffs = [];
+    document.querySelectorAll(".st-count").forEach(inp => {
+      const sys = Number(inp.dataset.sys), cnt = Number(inp.value) || 0;
+      if (sys !== cnt) diffs.push({ k: inp.dataset.k, sys, cnt, diff: cnt - sys });
+    });
+    const note = $("st_note").value.trim() || "انبارگردانی";
+    const rec = { id: uid("st"), at: new Date().toISOString(), date: todayJalali(), branch: activeBranch, by: userTag(), note, diffs };
+    if (!DB.settings.stocktakes) DB.settings.stocktakes = [];
+    DB.settings.stocktakes.unshift(rec);
+    if (DB.settings.stocktakes.length > 200) DB.settings.stocktakes.length = 200;
+    pushHistory({ itemId: null, branch: activeBranch, action: "stocktake", fromStatus: null, toStatus: null, date: todayJalali(), note: `انبارگردانی: ${diffs.length} مغایرت — ${note}`, by: userTag(), extra: { diffs } });
+    save();
+    closeModal();
+    if (!diffs.length) toast("✅ انبارگردانی ثبت شد — بدون مغایرت");
+    else { toast(`⚠️ ${diffs.length} مغایرت ثبت شد`); showStocktakeReport(rec); }
+  }, "ثبت انبارگردانی");
+}
+function stUpdate(inp) {
+  const sys = Number(inp.dataset.sys), cnt = Number(inp.value) || 0;
+  const d = cnt - sys;
+  const cell = document.querySelector(`.st-diff[data-k="${CSS.escape(inp.dataset.k)}"]`);
+  if (cell) { cell.textContent = d > 0 ? "+" + d : d; cell.style.color = d ? (d > 0 ? "#27ae60" : "#c0392b") : ""; cell.style.fontWeight = d ? "bold" : ""; }
+}
+function showStocktakeReport(rec) {
+  const html = `<p class="helper">تاریخ: ${esc(rec.date)} — ${esc(rec.branch)} — توسط ${esc(rec.by)}</p>
+    <table style="width:100%;font-size:13px;">
+      <thead><tr><th style="text-align:right;">مدل</th><th>سیستم</th><th>شمارش</th><th>اختلاف</th></tr></thead>
+      <tbody>${rec.diffs.map(d => `<tr><td>${esc(d.k.replace("|", " "))}</td><td style="text-align:center;">${d.sys}</td><td style="text-align:center;">${d.cnt}</td><td style="text-align:center;color:${d.diff > 0 ? "#27ae60" : "#c0392b"};font-weight:bold;">${d.diff > 0 ? "+" : ""}${d.diff}</td></tr>`).join("")}</tbody>
+    </table>`;
+  openModal("📋 گزارش انبارگردانی", html, null, "بستن");
+}
+function openStocktakeHistory() {
+  const list = DB.settings.stocktakes || [];
+  if (!list.length) { toast("انبارگردانی ثبت نشده", false); return; }
+  const html = list.map(r => `<div class="list-row" style="cursor:pointer;" onclick="closeModal(); setTimeout(()=>showStocktakeReport(${JSON.stringify(JSON.stringify(r))}),100);">
+    <span>📋 <b>${esc(r.date)}</b> — ${esc(r.branch)} <span class="helper">${esc(r.note)}</span></span>
+    <span>${r.diffs.length} مغایرت</span></div>`).join("");
+  openModal("📚 تاریخ انبارگردانی‌ها", html, null, "بستن");
+}
+
+/* ============================ ۳) برگشت به تامین‌کننده ============================ */
+function openSupplierReturn(itemId) {
+  const it = DB.items.find(i => i.id === itemId);
+  if (!it) return;
+  const html = `
+    <p class="helper">موتور: <b>${esc(it.company)} ${esc(it.name)}</b> (شاسی: ${esc(it.chassis) || "-"})</p>
+    <div class="field"><label>تامین‌کننده</label><input id="sr_supplier" value="${esc(it.supplier || "")}"></div>
+    <div class="field" style="margin-top:8px;"><label>تاریخ برگشت (شمسی) *</label><div class="dp-wrap"><input class="dp-input" id="sr_date" readonly></div></div>
+    <div class="field" style="margin-top:8px;"><label>دلیل برگشت *</label><textarea id="sr_reason" rows="2" placeholder="معیوب، اشتباه ارسالی، مغایرت مدل..."></textarea></div>
+    <div id="sr_err" class="login-err"></div>`;
+  openModal("↩️ برگشت به تامین‌کننده", html, () => {
+    const reason = $("sr_reason").value.trim();
+    const date = $("sr_date").value.trim();
+    if (!reason) { $("sr_err").textContent = "دلیل برگشت الزامی است"; return; }
+    if (!date) { $("sr_err").textContent = "تاریخ را انتخاب کنید"; return; }
+    it.exitInfo = { type: "supplier_return", supplier: $("sr_supplier").value.trim(), date, reason };
+    it.status = STATUS.OUT;
+    pushHistory({ id: uid("h"), itemId: it.id, branch: it.branch, action: "supplier_return", fromStatus: STATUS.IN, toStatus: STATUS.OUT, date, note: `برگشت به تامین‌کننده ${it.exitInfo.supplier} — دلیل: ${reason}`, by: userTag(), extra: { reason, supplier: it.exitInfo.supplier } });
+    save({ items: [it.id] });
+    closeModal(); toast("↩️ برگشت به تامین‌کننده ثبت شد");
+    renderCycle(); renderInventory(); renderDashboard();
+  }, "ثبت برگشت", () => { buildJalaliPicker($("sr_date")); if ($("sr_date")) attachManualDate($("sr_date")); });
+}
+
+/* ---------- سفارش خرید ---------- */
+function openPurchaseOrder() {
+  if (!canManage()) { toast("فقط مدیر", false); return; }
+  const html = `
+    <div class="grid" style="grid-template-columns:1fr 1fr;">
+      <div class="field"><label>تامین‌کننده</label><input id="po_supplier" list="poSupList"><datalist id="poSupList">${suppliersList().map(s => `<option value="${esc(s)}">`).join("")}</datalist></div>
+      <div class="field"><label>تاریخ سفارش</label><div class="dp-wrap"><input class="dp-input" id="po_date" readonly></div></div>
+      <div class="field"><label>مدل (شرکت)</label><input id="po_company" list="poCompList"><datalist id="poCompList">${companiesList().map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>
+      <div class="field"><label>نام موتور</label><input id="po_name"></div>
+      <div class="field"><label>تعداد</label><input id="po_qty" type="number" value="1" style="direction:ltr;"></div>
+      <div class="field"><label>قیمت تخمینی (تومان)</label><input id="po_price" class="num-fmt" value="0"></div>
+    </div>
+    <div class="field"><label>توضیحات</label><input id="po_note"></div>`;
+  openModal("🛒 سفارش خرید جدید", html, () => {
+    const rec = {
+      id: uid("po"), supplier: $("po_supplier").value.trim(), date: $("po_date").value.trim() || todayJalali(),
+      company: $("po_company").value.trim(), name: $("po_name").value.trim(),
+      qty: Number($("po_qty").value) || 1, price: Number($("po_price").value.replace(/[^\d]/g, "")) || 0,
+      note: $("po_note").value.trim(), status: "در انتظار", at: new Date().toISOString(), by: userTag()
+    };
+    if (!rec.company && !rec.name) { toast("مدل یا نام موتور لازم است", false); return; }
+    if (!DB.settings.purchaseOrders) DB.settings.purchaseOrders = [];
+    DB.settings.purchaseOrders.unshift(rec);
+    save();
+    closeModal(); toast("🛒 سفارش خرید ثبت شد");
+    if (typeof renderPurchaseOrders === "function") renderPurchaseOrders();
+  }, "ثبت سفارش", () => { attachNumFmt($("modalMsg")); buildJalaliPicker($("po_date")); if ($("po_date")) attachManualDate($("po_date")); });
+}
+function renderPurchaseOrders() {
+  const el = $("poList"); if (!el) return;
+  const list = DB.settings.purchaseOrders || [];
+  if (!list.length) { el.innerHTML = '<div class="empty">سفارش خریدی ثبت نشده</div>'; return; }
+  el.innerHTML = list.map(o => {
+    const badge = o.status === "دریافت شد" ? "b-in" : o.status === "لغو شد" ? "b-out" : "b-trust";
+    return `<div class="list-row">
+      <span>🛒 <b>${esc(o.company)} ${esc(o.name)}</b> ×${o.qty} — ${esc(o.supplier) || "بدون تامین‌کننده"} <span class="helper">${esc(o.date)}</span></span>
+      <span><span class="badge ${badge}">${esc(o.status)}</span>
+      ${o.status === "در انتظار" ? `<button class="btn small success" onclick="receivePO('${o.id}')">📥 دریافت</button>
+      <button class="btn small danger" onclick="cancelPO('${o.id}')">لغو</button>` : ""}</span></div>`;
+  }).join("");
+}
+function receivePO(id) {
+  const o = (DB.settings.purchaseOrders || []).find(x => x.id === id);
+  if (!o) return;
+  o.status = "دریافت شد";
+  pushHistory({ itemId: null, branch: activeBranch, action: "po_receive", fromStatus: null, toStatus: null, date: todayJalali(), note: `دریافت سفارش خرید: ${o.company} ${o.name} ×${o.qty} از ${o.supplier}`, by: userTag() });
+  save(); renderPurchaseOrders(); toast("📥 سفارش دریافت شد — حالا از «ورود کالا» ثبت کنید");
+}
+function cancelPO(id) {
+  const o = (DB.settings.purchaseOrders || []).find(x => x.id === id);
+  if (!o) return;
+  o.status = "لغو شد";
+  save(); renderPurchaseOrders(); toast("سفارش لغو شد");
+}
+
+/* ============================ ۵) حداقل/حداکثر هر مدل ============================ */
+function modelKey(it) { return (it.company || "") + "|" + (it.name || ""); }
+function modelLimits() {
+  if (!DB.settings.modelLimits) DB.settings.modelLimits = {};
+  return DB.settings.modelLimits;
+}
+function allModelKeys() {
+  const set = new Set();
+  activeItems().forEach(i => { if (i.name) set.add(modelKey(i)); });
+  Object.keys(modelLimits()).forEach(k => set.add(k));
+  return [...set].sort();
+}
+function modelStock(key, branch) {
+  const b = branch || activeBranch;
+  return DB.items.filter(i => !itemDeleted(i) && !itemArchived(i) &&
+    (i.status === STATUS.IN || i.status === STATUS.RESERVED) && modelKey(i) === key &&
+    (b === MANAGER || i.branch === b)).length;
+}
+function renderModelLimits() {
+  const el = $("modelLimitManage"); if (!el) return;
+  if (!canManage()) { el.innerHTML = ""; return; }
+  const lim = modelLimits();
+  const keys = allModelKeys();
+  if (!keys.length) { el.innerHTML = '<div class="empty">مدلی ثبت نشده</div>'; return; }
+  el.innerHTML = `<div style="max-height:340px;overflow:auto;"><table style="width:100%;font-size:13px;">
+    <thead><tr><th style="text-align:right;">مدل</th><th>موجودی</th><th>حداقل</th><th>حداکثر</th></tr></thead>
+    <tbody>${keys.map(k => {
+      const [c, n] = k.split("|");
+      const l = lim[k] || { min: 0, max: 0 };
+      const stock = modelStock(k);
+      const warn = l.min && stock <= l.min;
+      return `<tr>
+        <td>${esc(c)} ${esc(n)} ${warn ? '⚠️' : ""}</td>
+        <td style="text-align:center;">${stock}</td>
+        <td><input type="number" min="0" value="${l.min || 0}" style="width:70px;direction:ltr;" onchange="setModelLimit('${esc(k)}','min',this.value)"></td>
+        <td><input type="number" min="0" value="${l.max || 0}" style="width:70px;direction:ltr;" onchange="setModelLimit('${esc(k)}','max',this.value)"></td>
+      </tr>`;
+    }).join("")}</tbody></table></div>`;
+}
+function setModelLimit(key, which, val) {
+  const lim = modelLimits();
+  lim[key] = lim[key] || { min: 0, max: 0 };
+  lim[key][which] = Number(val) || 0;
+  save(); renderModelLimits();
+  toast("✅ ذخیره شد");
+}
+function reorderSuggestions() {
+  const lim = modelLimits();
+  const out = [];
+  for (const k in lim) {
+    const l = lim[k];
+    if (!l.min) continue;
+    const stock = modelStock(k);
+    if (stock <= l.min) {
+      const [c, n] = k.split("|");
+      out.push({ model: `${c} ${n}`, stock, min: l.min, suggest: Math.max(1, l.min - stock) });
+    }
+  }
+  return out;
+}
+function showReorderSuggestions() {
+  const list = reorderSuggestions();
+  if (!list.length) { toast("همه مدل‌ها بالای حد مجاز هستند ✅"); return; }
+  const html = `<p class="helper">مدل‌هایی که به حداقل رسیده‌اند و پیشنهاد سفارش:</p>
+    <table style="width:100%;font-size:13px;">
+      <thead><tr><th style="text-align:right;">مدل</th><th>موجودی</th><th>حداقل</th><th>پیشنهاد سفارش</th></tr></thead>
+      <tbody>${list.map(x => `<tr><td>${esc(x.model)}</td><td style="text-align:center;color:#c0392b;font-weight:bold;">${x.stock}</td><td style="text-align:center;">${x.min}</td><td style="text-align:center;color:#27ae60;font-weight:bold;">${x.suggest}</td></tr>`).join("")}</tbody>
+    </table>`;
+  openModal("🛒 پیشنهاد سفارش", html, null, "بستن");
+}
+
+/* ============================ ۶) کاردکس (دفتر حرکت) ============================ */
+function buildKardex(branch) {
+  const scope = isManager() ? DB.items : DB.items.filter(i => i.branch === activeBranch);
+  const rows = [];
+  const actionMap = {
+    in: "ورود به انبار", sale: "فروش", transfer: "انتقال بین شعبه", return: "برگشت از مشتری",
+    status: "تغییر وضعیت", exit: "خروج از انبار", adjust: "اصلاح موجودی", archive: "آرشیو",
+    restore: "بازگردانی", supplier_return: "برگشت به تامین‌کننده", reserve: "رزرو"
+  };
+  DB.history.forEach(h => {
+    const it = DB.items.find(i => i.id === h.itemId);
+    if (!it) return;
+    if (!isManager() && it.branch !== activeBranch && h.branch !== activeBranch) return;
+    if (h.action === "stocktake" || h.action === "po_receive") return;
+    rows.push({
+      date: h.date, createdAt: h.createdAt, itemId: h.itemId,
+      branch: h.branch || it.branch,
+      model: `${it.company || ""} ${it.name || ""}`.trim(),
+      chassis: it.chassis, plate: it.plate,
+      movement: actionMap[h.action] || h.action,
+      from: h.fromStatus, to: h.toStatus,
+      note: h.note, by: h.by
+    });
+  });
+  rows.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  return rows;
+}
+function renderKardex() {
+  const q = ($("kx_q") ? $("kx_q").value : "").trim().toLowerCase();
+  let rows = buildKardex();
+  if (q) rows = rows.filter(r => [r.model, r.chassis, r.plate, r.movement, r.note, r.by].join(" ").toLowerCase().includes(q));
+  const totalCount = rows.length;
+  const pg = paginate(rows, "kx");
+  rows = pg.pageRows;
+  if ($("kxCount")) $("kxCount").textContent = `${totalCount} حرکت — صفحه ${pg.cur} از ${pg.pages}`;
+  const el = $("kxTable"); if (!el) return;
+  if (!totalCount) { el.innerHTML = '<div class="empty">حرکتی یافت نشد</div>'; return; }
+  el.innerHTML = `<div style="overflow-x:auto;"><table>
+    <thead><tr><th>تاریخ</th><th>شعبه</th><th>مدل</th><th>شاسی/پلاک</th><th>حرکت</th><th>از→به</th><th>کاربر</th><th>توضیح</th></tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      <td>${esc(r.date) || "-"}</td>
+      <td>${esc(r.branch) || "-"}</td>
+      <td>${esc(r.model)}</td>
+      <td><span style="font-size:10px;direction:ltr;">${esc(r.chassis) || "-"}</span> / <span style="direction:ltr;">${esc(r.plate) || "-"}</span></td>
+      <td>${esc(r.movement)}</td>
+      <td>${esc(r.from) || "-"} → ${esc(r.to) || "-"}</td>
+      <td>${esc(r.by) || "-"}</td>
+      <td style="font-size:12px;">${esc(r.note) || ""}</td>
+    </tr>`).join("")}</tbody></table></div>` + pg.bar;
+}
+function exportKardexCSV() {
+  const rows = [["تاریخ", "شعبه", "مدل", "شاسی", "پلاک", "حرکت", "از", "به", "کاربر", "توضیح"]];
+  buildKardex().forEach(r => rows.push([r.date, r.branch, r.model, r.chassis, r.plate, r.movement, r.from, r.to, r.by, r.note]));
+  downloadCSV(`kardex-${todayJalali().replace(/\//g, "-")}.csv`, rows);
+  toast("✅ فایل CSV کاردکس دانلود شد");
+}
+function exportStocktakeCSV() {
+  const list = DB.settings.stocktakes || [];
+  const rows = [["تاریخ", "شعبه", "کاربر", "توضیح", "مدل", "سیستم", "شمارش", "اختلاف"]];
+  list.forEach(r => r.diffs.forEach(d => rows.push([r.date, r.branch, r.by, r.note, d.k.replace("|", " "), d.sys, d.cnt, d.diff])));
+  downloadCSV(`stocktake-${todayJalali().replace(/\//g, "-")}.csv`, rows);
+  toast("✅ فایل CSV انبارگردانی دانلود شد");
+}
+/* ==========================================================================
    ورود کاربری، سطح دسترسی و همگام‌سازی زنده (WebSocket room)
    ========================================================================== */
 const AUTH_KEY = "moto_warehouse_auth";
@@ -2450,7 +3255,7 @@ async function doSetupManager() {
   sessionStorage.setItem(AUTH_KEY, JSON.stringify({ username: u, role: "manager", branch: MANAGER }));
   save({ users: [u] });
   // نمایش اجباری عبارت بازیابی
-  showRecoveryPhrase(phrase, () => { startApp(); toast("🛡️ حساب مدیر ساخته شد"); });
+  showRecoveryPhrase(phrase, () => { preDecryptAll().then(startApp); toast("🛡️ حساب مدیر ساخته شد"); });
 }
 
 /* نمایش عبارت بازیابی با تایید اجباری */
@@ -2497,6 +3302,7 @@ async function doLogin() {
   if (!u || !p) { errEl.textContent = "نام کاربری و رمز عبور را وارد کنید"; return; }
   const user = await verifyUser(u, p);
   if (!user) { errEl.textContent = "نام کاربری یا رمز عبور اشتباه است"; return; }
+  if (isUserDisabled(u)) { errEl.textContent = "این حساب توسط مدیر غیرفعال شده است"; return; }
   errEl.textContent = "";
   // باز کردن کلید داده
   if (user.wrappedKeyPass) {
@@ -2505,6 +3311,7 @@ async function doLogin() {
   }
   currentUser = { username: user.username, role: user.role, branch: user.branch };
   sessionStorage.setItem(AUTH_KEY, JSON.stringify(currentUser));
+  await preDecryptAll();
   startApp();
   toast(`👋 خوش آمدید ${user.username}`);
 }
@@ -2597,8 +3404,14 @@ function openAccountMenu() {
 }
 function renderUserList() {
   const el = $("userList"); if (!el) return;
-  el.innerHTML = DB.users.map(u => `<div class="list-row"><span>${u.role === "manager" ? "👔" : "🧑"} <b>${esc(u.username)}</b> — ${u.role === "manager" ? "مدیر" : esc(u.branch)}</span>
-    ${u.role === "manager" ? "" : `<button class="btn small danger" onclick="removeUser('${esc(u.username)}')">حذف</button>`}</div>`).join("");
+  el.innerHTML = DB.users.map(u => {
+    const dis = isUserDisabled(u.username);
+    const badge = dis ? '<span class="badge b-out">غیرفعال</span>' : '<span class="badge b-in">فعال</span>';
+    const act = u.role === "manager" ? "" : (dis
+      ? `<button class="btn small success" onclick="enableUser('${esc(u.username)}')">فعال‌سازی</button>`
+      : `<button class="btn small danger" onclick="removeUser('${esc(u.username)}')">غیرفعال</button>`);
+    return `<div class="list-row" style="${dis ? "opacity:.55;" : ""}"><span>${u.role === "manager" ? "👔" : "🧑"} <b>${esc(u.username)}</b> — ${u.role === "manager" ? "مدیر" : esc(u.branch)} ${badge}</span>${act}</div>`;
+  }).join("");
 }
 async function addStaff() {
   const u = $("nu_user").value.trim();
@@ -2615,11 +3428,18 @@ async function addStaff() {
   $("nu_user").value = ""; $("nu_pass").value = "";
 }
 function removeUser(username) {
-  openModal("حذف کاربر", `کاربر <b>${esc(username)}</b> حذف شود؟`, () => {
-    DB.users = DB.users.filter(u => u.username !== username);
-    if (typeof markDeletedUser === "function") markDeletedUser(username);
-    save(); closeModal(); renderUserList(); toast("🗑️ حذف شد");
-  }, "حذف");
+  openModal("غیرفعال کردن کاربر", `کاربر <b>${esc(username)}</b> غیرفعال شود؟<br><span style="color:#2a5298;">✅ اطلاعات کاربر روی سرور باقی می‌ماند و در صورت نیاز قابل فعال‌سازی است.</span>`, () => {
+    if (!DB.settings.disabledUsers) DB.settings.disabledUsers = [];
+    if (!DB.settings.disabledUsers.includes(username)) DB.settings.disabledUsers.push(username);
+    closeModal(); save(); renderUserList(); toast("🚫 کاربر غیرفعال شد");
+  }, "غیرفعال کن");
+}
+function enableUser(username) {
+  if (DB.settings.disabledUsers) DB.settings.disabledUsers = DB.settings.disabledUsers.filter(u => u !== username);
+  save(); renderUserList(); toast("✅ کاربر فعال شد");
+}
+function isUserDisabled(username) {
+  return !!(DB.settings.disabledUsers && DB.settings.disabledUsers.includes(username));
 }
 async function changePassword() {
   const oldp = prompt("رمز فعلی را وارد کنید:");
@@ -2673,6 +3493,11 @@ function applyPermissions() {
   [reportBtn, setBtn, backupBtn].forEach(b => { if (b) b.style.display = mgr ? "" : "none"; });
   const logBtn = document.querySelector('#mainNav button[data-tab="log"]');
   if (logBtn) logBtn.style.display = "";
+  // نشان تعداد درخواست‌های در انتظار تأیید روی تب تنظیمات (مدیر)
+  if (mgr && setBtn) {
+    const n = (DB.settings.pendingEdits || []).length;
+    setBtn.textContent = n ? `⚙️ تنظیمات (${n} تأیید)` : "⚙️ تنظیمات";
+  }
   // کارمند فقط شعبه خودش
   if (!mgr && currentUser) {
     activeBranch = currentUser.branch;
@@ -2747,6 +3572,8 @@ function broadcastDB() {
 /* ---------- شروع برنامه ---------- */
 function startApp() {
   hideLogin();
+  // آرشیو خودکار موتورهای بالای یک سال
+  if (typeof runAutoArchive === "function") { try { runAutoArchive(false); } catch (e) {} }
   renderBranchTabs();
   applyPermissions();
   renderDashboard();
@@ -2767,7 +3594,7 @@ async function bootAuth() {
     try { currentUser = JSON.parse(saved); } catch (e) { currentUser = null; }
   }
   // اگر کاربر ذخیره شده و کلید داده در همین نشست موجود است، بدون ورود مجدد ادامه بده
-  if (currentUser && await restoreSessionKey()) { startApp(); return; }
+  if (currentUser && await restoreSessionKey()) { await preDecryptAll(); startApp(); return; }
   if (currentUser && !sessionStorage.getItem(DKEY_KEY)) {
     // نشست تازه بدون کلید داده → باید دوباره رمز بزند
     currentUser = null;
@@ -2833,9 +3660,13 @@ function itemToRow(it) {
       payStatus: it.payStatus || "", prepay: it.prepay || 0, specs: it.specs || "",
       note: it.note || "", supplierPhone: it.supplierPhone || "",
       group: it.group || "", returnCount: it.returnCount || 0,
-      lastReturn: it.lastReturn || null, reserveInfo: it.reserveInfo || null
+      lastReturn: it.lastReturn || null, reserveInfo: it.reserveInfo || null,
+      // حذف نرم و آرشیو — هیچ رکوردی از سرور پاک نمی‌شود
+      deleted: !!it.deleted, deletedAt: it.deletedAt || null, deletedBy: it.deletedBy || null,
+      archived: !!it.archived, archivedAt: it.archivedAt || null,
+      saleDate: it.saleDate || null, soldBy: it.soldBy || null
     },
-    updated_at: new Date().toISOString()
+    updated_at: it.updatedAt || new Date().toISOString()
   };
 }
 function rowToItem(r) {
@@ -2852,7 +3683,10 @@ function rowToItem(r) {
     payStatus: ex.payStatus || "", prepay: ex.prepay || 0, specs: ex.specs || "",
     note: ex.note || "", supplierPhone: ex.supplierPhone || "",
     group: ex.group || "", returnCount: ex.returnCount || 0,
-    lastReturn: ex.lastReturn || null, reserveInfo: ex.reserveInfo || null
+    lastReturn: ex.lastReturn || null, reserveInfo: ex.reserveInfo || null,
+    deleted: !!ex.deleted, deletedAt: ex.deletedAt || null, deletedBy: ex.deletedBy || null,
+    archived: !!ex.archived, archivedAt: ex.archivedAt || null,
+    saleDate: ex.saleDate || null, soldBy: ex.soldBy || null
   };
 }
 /* ---------- نگاشت ردیف ↔ تاریخچه ---------- */
@@ -2897,12 +3731,24 @@ async function supaLoadAll() {
       recoveryHint: u.recovery_hint, createdAt: u.created_at
     }));
   }
-  // آیتم‌ها
-  const items = await supaFetch("items?select=*&order=updated_at.asc");
-  if (items) DB.items = items.map(rowToItem);
-  // تاریخچه (همیشه حفظ می‌شود — هیچ‌وقت پاک نمی‌شود)
-  const hist = await supaFetch("history?select=*&order=created_at.asc&limit=5000");
-  if (hist) DB.history = hist.map(rowToHistory);
+  // آیتم‌ها (صفحه‌بندی برای پشتیبانی از بیش از ۱۰۰۰ ردیف)
+  const allItems = [];
+  for (let from = 0; ; from += 1000) {
+    const page = await supaFetch(`items?select=*&order=updated_at.asc&offset=${from}&limit=1000`);
+    if (!page || !page.length) break;
+    allItems.push(...page);
+    if (page.length < 1000) break;
+  }
+  DB.items = allItems.map(rowToItem);
+  // تاریخچه (همیشه حفظ می‌شود — هیچ‌وقت پاک نمی‌شود) — صفحه‌بندی کامل
+  const allHist = [];
+  for (let from = 0; ; from += 1000) {
+    const page = await supaFetch(`history?select=*&order=created_at.asc&offset=${from}&limit=1000`);
+    if (!page || !page.length) break;
+    allHist.push(...page);
+    if (page.length < 1000) break;
+  }
+  DB.history = allHist.map(rowToHistory);
   // گروه‌های موجودی
   try {
     const grp = await supaFetch("groups?select=*&order=sort_order.asc");
@@ -2978,7 +3824,12 @@ const _dirtyUsers = new Set();
 let _dirtySettings = false;
 const _pendingActivity = [];
 
-function markItemDirty(id) { _dirtyItems.add(id); scheduleSupaPush(); }
+function markItemDirty(id) {
+  const it = DB.items.find(i => i.id === id);
+  if (it) it.updatedAt = new Date().toISOString();
+  _dirtyItems.add(id);
+  scheduleSupaPush();
+}
 function markUserDirty(username, isNew) {
   _dirtyUsers.add(username);
   if (isNew) _newUsers.add(username);
@@ -2999,18 +3850,17 @@ function scheduleSupaPush() {
 async function supaFlush() {
   if (!SUPA_ON || !supaOnline) return;
   try {
-    const itemRows = DB.items.filter(i => _dirtyItems.has(i.id));
+    // موتورهای تغییر‌یافته + موتورهای حذف‌نرم‌شده (هر دو upsert می‌شوند، هرگز حذف نمی‌شوند)
+    const dirtyIds = new Set([..._dirtyItems, ..._deletedItems]);
+    const itemRows = DB.items.filter(i => dirtyIds.has(i.id));
     _dirtyItems.clear();
-    await supaUpsertItems(itemRows);
-
-    for (const id of _deletedItems) { await supaDeleteItem(id); }
     _deletedItems.clear();
+    if (itemRows.length) await supaUpsertItems(itemRows);
 
     const userRows = DB.users.filter(u => _dirtyUsers.has(u.username));
-    const newSet = new Set(_newUsers); _newUsers.clear();
     _dirtyUsers.clear();
-    await supaUpsertUsers(userRows);
-    for (const un of _deletedUsers) { await supaDeleteUser(un); }
+    _newUsers.clear();
+    if (userRows.length) await supaUpsertUsers(userRows);
     _deletedUsers.clear();
 
     if (_dirtySettings) { _dirtySettings = false; await supaPushSettings(); }
@@ -3028,27 +3878,23 @@ async function supaFlush() {
 async function supaPullChanges() {
   if (!SUPA_ON || !supaOnline) return;
   try {
-    const items = await supaFetch("items?select=*&order=updated_at.desc&limit=500");
+    const items = await supaFetch("items?select=*&order=updated_at.desc&limit=1000");
     if (!items) return;
-    const serverById = new Map(items.map(r => [r.id, r]));
     let changed = false;
-    // آیتم‌های جدید/به‌روزشده
+    // آیتم‌های جدید/به‌روزشده — هیچ رکوردی هرگز حذف نمی‌شود (حذف نرم)
     for (const r of items) {
       const local = DB.items.find(i => i.id === r.id);
       if (!local) { DB.items.push(rowToItem(r)); changed = true; }
-      else if ((r.updated_at || "") > (local.updatedAt || "")) {
+      else if (!_dirtyItems.has(r.id) && (r.updated_at || "") > (local.updatedAt || "")) {
         Object.assign(local, rowToItem(r));
         changed = true;
       }
     }
-    // حذف‌شده‌ها
-    const serverIds = new Set(items.map(r => r.id));
-    const before = DB.items.length;
-    DB.items = DB.items.filter(i => serverIds.has(i.id));
-    if (DB.items.length !== before) changed = true;
+    // هیچ حذف خودکاری انجام نمی‌شود؛ داده‌ها همیشه روی سرور می‌مانند.
 
     if (changed) {
-      localStorage.setItem(LS_KEY, JSON.stringify(DB));
+      try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) {}
+      if (typeof preDecryptAll === "function") await preDecryptAll();
       renderBranchTabs(); renderDashboard();
       const t = document.querySelector("#mainNav button.active");
       if (t) refreshTab(t.dataset.tab);
@@ -3087,6 +3933,7 @@ async function supaInit() {
   if (!SUPA_ON) return false;
   try {
     await supaLoadAll();
+    if (typeof preDecryptAll === "function") await preDecryptAll();
     return true;
   } catch (e) {
     console.warn("supaInit", e);
@@ -3193,7 +4040,7 @@ function clearLog() {
    تنظیمات
    ========================================================================== */
 function renderSettings() {
-  if (!canManage()) { $("brManage").innerHTML = ""; return; }
+  if (!canManage()) { $("brManage").innerHTML = ""; $("pendingManage").innerHTML = ""; return; }
   $("set_company").value = DB.settings.companyName || "";
   $("set_lowStock").value = DB.settings.lowStock || 3;
   $("set_branches").value = branches().join(", ");
@@ -3206,6 +4053,10 @@ function renderSettings() {
   }).join("");
   renderGroups();
   renderCompanies();
+  if (typeof renderPending === "function") renderPending();
+  if (typeof renderModelLimits === "function") renderModelLimits();
+  if (typeof renderPurchaseOrders === "function") renderPurchaseOrders();
+  if (typeof renderUserList === "function") renderUserList();
 }
 /* مدیریت شرکت‌ها */
 function renderCompanies() {
@@ -3339,21 +4190,38 @@ function importData(ev) {
     try {
       const d = JSON.parse(e.target.result);
       if (!d.items || !d.history) throw new Error("bad");
-      openModal("بازگردانی", `فایل شامل <b>${d.items.length}</b> موتور است. داده‌های فعلی جایگزین می‌شوند. ادامه؟`, () => {
-        DB = { items: d.items || [], history: d.history || [], activity: d.activity || [], settings: Object.assign({}, DEFAULT_SETTINGS, d.settings || {}) };
-        save(); closeModal(); toast("✅ بازگردانی شد"); setTimeout(() => location.reload(), 700);
-      }, "بازگردانی");
+      openModal("بازگردانی (ادغام امن)", `فایل شامل <b>${d.items.length}</b> موتور است.<br><br>موتورهای جدید <b>اضافه</b> می‌شوند؛ هیچ داده فعلی پاک نمی‌شود و تاریخچه‌ها ادغام می‌گردند. ادامه؟`, () => {
+        const byId = new Map(DB.items.map(i => [i.id, i]));
+        (d.items || []).forEach(it => { if (!byId.has(it.id)) DB.items.push(it); });
+        const hIds = new Set(DB.history.map(h => h.id));
+        (d.history || []).forEach(h => { if (!hIds.has(h.id)) DB.history.push(h); });
+        if (d.users && d.users.length) {
+          const uIds = new Set(DB.users.map(u => u.username));
+          d.users.forEach(u => { if (!uIds.has(u.username)) DB.users.push(u); });
+        }
+        save({ items: (d.items || []).map(i => i.id) });
+        closeModal(); toast("✅ بازگردانی و ادغام شد (بدون حذف)");
+        renderBranchTabs(); renderDashboard(); renderInventory(); renderCycle();
+      }, "ادغام کن");
     } catch (err) { toast("❌ فایل نامعتبر است", false); }
     ev.target.value = "";
   };
   r.readAsText(f);
 }
 function resetAll() {
-  openModal("⚠️ پاک کردن همه داده‌ها", "همه موتورها و تاریخچه <b>برای همیشه</b> پاک می‌شوند. مطمئن هستید؟<br><br>پیشنهاد: ابتدا پشتیبان بگیرید.", () => {
-    DB = { items: [], history: [], activity: [], settings: { ...DEFAULT_SETTINGS } };
-    activeBranch = DB.settings.branches[0];
-    save(); closeModal(); toast("🗑️ همه داده‌ها پاک شد"); setTimeout(() => location.reload(), 700);
-  }, "پاک کن");
+  openModal("⚠️ آرشیو کردن همه داده‌ها", "همه موتورهای فعال <b>به بایگانی منتقل</b> می‌شوند (پاک نمی‌شوند).<br><br>✅ همه اطلاعات، مشخصات و تاریخچه روی سرور محفوظ می‌ماند و از تب «بایگانی» قابل بازگردانی است.", async () => {
+    let n = 0;
+    for (const it of DB.items) {
+      if (!it.deleted && !it.archived) {
+        it.archived = true; it.archivedAt = new Date().toISOString();
+        if (typeof markItemDirty === "function") markItemDirty(it.id);
+        n++;
+      }
+    }
+    pushHistory({ itemId: null, branch: MANAGER, action: "archive", fromStatus: null, toStatus: null, date: todayJalali(), note: `آرشیو گروهی ${n} موتور توسط ${userTag()}`, by: userTag() });
+    save(); closeModal(); toast(`📦 ${n} موتور آرشیو شد (قابل بازگردانی)`);
+    renderBranchTabs(); renderDashboard(); renderInventory(); renderCycle();
+  }, "آرشیو کن");
 }
 function renderStorageInfo() {
   const bytes = new Blob([JSON.stringify(DB)]).size;
@@ -3458,6 +4326,8 @@ async function boot() {
   bindLiveInputs();
   attachNumFmt(document);
   document.querySelectorAll(".dp-input").forEach(buildJalaliPicker);
+  // فیلدهایی که ورود دستی هم دارند
+  if ($("out_birth")) attachManualDate($("out_birth"));
 
   $("in_date").value = todayJalali();
   $("out_date").value = todayJalali();
